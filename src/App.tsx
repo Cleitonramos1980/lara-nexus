@@ -29,6 +29,7 @@ const App = () => (
           <Route path="/" element={<Navigate to="/lara/dashboard" replace />} />
           <Route path="/lara/dashboard" element={<LaraDashboard />} />
           <Route path="/lara/atendimentos" element={<LaraAtendimentos />} />
+          <Route path="/lara/conversas" element={<LaraConversas />} />
           <Route path="/lara/clientes" element={<LaraClientes />} />
           <Route path="/lara/clientes/:id" element={<LaraClienteDetalhe />} />
           <Route path="/lara/titulos" element={<LaraTitulos />} />

@@ -244,3 +244,85 @@ export const mockReguaExecucoes: ReguaExecucao[] = [
   { id: 'r5', data_hora: '2025-04-03 06:00', etapa: 'D+15', elegivel: 30, disparada: 27, erro: 1, respondida: 10, valor_impactado: 198000, status: 'Concluído' },
   { id: 'r6', data_hora: '2025-04-02 12:00', etapa: 'D+30', elegivel: 22, disparada: 18, erro: 2, respondida: 5, valor_impactado: 456000, status: 'Parcial' },
 ];
+
+export const mockConversas: Conversa[] = [
+  {
+    id: 'conv1', codcli: '10234', cliente: 'Comercial Norte Distribuidora Ltda', telefone: '(92) 99812-3456', wa_id: '5592998123456',
+    status: 'Boleto enviado', etapa: 'D+7', origem: 'Régua ativa', inicio: '2025-04-04 14:00', ultima_interacao: '2025-04-04 14:32',
+    total_mensagens: 5, encerrada: false, responsavel: 'Lara Automação',
+    mensagens: [
+      { id: 'm1', remetente: 'lara', texto: 'Olá! Aqui é a Lara, assistente financeira da empresa. Identificamos títulos em aberto no seu cadastro. Posso ajudar?', data_hora: '2025-04-04 14:00', tipo: 'texto' },
+      { id: 'm2', remetente: 'cliente', texto: 'Boa tarde, quais títulos estão pendentes?', data_hora: '2025-04-04 14:05', tipo: 'texto' },
+      { id: 'm3', remetente: 'lara', texto: 'Você possui 3 títulos em aberto totalizando R$ 33.750,00. Deseja receber o boleto atualizado?', data_hora: '2025-04-04 14:06', tipo: 'texto' },
+      { id: 'm4', remetente: 'cliente', texto: 'Sim, pode enviar o boleto por favor.', data_hora: '2025-04-04 14:15', tipo: 'texto' },
+      { id: 'm5', remetente: 'lara', texto: 'Segue o boleto atualizado para pagamento. Valor: R$ 33.750,00. Vencimento: 10/04/2025.', data_hora: '2025-04-04 14:32', tipo: 'boleto' },
+    ]
+  },
+  {
+    id: 'conv2', codcli: '10456', cliente: 'Atacadão Manaus Utilidades Ltda', telefone: '(92) 99734-5678', wa_id: '5592997345678',
+    status: 'Cliente respondeu', etapa: 'D0', origem: 'Receptivo', inicio: '2025-04-05 09:10', ultima_interacao: '2025-04-05 09:22',
+    total_mensagens: 4, encerrada: false, responsavel: 'Lara Automação',
+    mensagens: [
+      { id: 'm6', remetente: 'cliente', texto: 'Boa tarde, gostaria de receber o boleto atualizado.', data_hora: '2025-04-05 09:10', tipo: 'texto' },
+      { id: 'm7', remetente: 'lara', texto: 'Olá! Vou localizar seus títulos. Pode me informar o CNPJ ou código de cliente?', data_hora: '2025-04-05 09:11', tipo: 'texto' },
+      { id: 'm8', remetente: 'cliente', texto: 'CNPJ 23.456.789/0001-80', data_hora: '2025-04-05 09:15', tipo: 'texto' },
+      { id: 'm9', remetente: 'lara', texto: 'Cliente identificado: Atacadão Manaus Utilidades Ltda. Você possui 1 título em aberto de R$ 23.100,50. Deseja boleto ou PIX?', data_hora: '2025-04-05 09:22', tipo: 'texto' },
+    ]
+  },
+  {
+    id: 'conv3', codcli: '10789', cliente: 'Rede Ponto Econômico Comércio Ltda', telefone: '(91) 98812-9012', wa_id: '5591988129012',
+    status: 'Promessa registrada', etapa: 'D+15', origem: 'Régua ativa', inicio: '2025-04-03 16:30', ultima_interacao: '2025-04-03 16:50',
+    total_mensagens: 6, encerrada: false, responsavel: 'Operador Financeiro 01',
+    mensagens: [
+      { id: 'm10', remetente: 'lara', texto: 'Olá! Verificamos que existem títulos vencidos há mais de 15 dias. Podemos ajudar com uma solução de pagamento?', data_hora: '2025-04-03 16:30', tipo: 'texto' },
+      { id: 'm11', remetente: 'cliente', texto: 'Estou ciente, estamos com dificuldade no fluxo de caixa.', data_hora: '2025-04-03 16:35', tipo: 'texto' },
+      { id: 'm12', remetente: 'lara', texto: 'Entendo. Podemos negociar uma data de pagamento. Quando seria possível efetuar o pagamento?', data_hora: '2025-04-03 16:36', tipo: 'texto' },
+      { id: 'm13', remetente: 'cliente', texto: 'Consigo pagar dia 10 de abril.', data_hora: '2025-04-03 16:40', tipo: 'texto' },
+      { id: 'm14', remetente: 'lara', texto: 'Promessa de pagamento registrada para 10/04/2025. Valor: R$ 31.264,00. Vou enviar o boleto atualizado.', data_hora: '2025-04-03 16:42', tipo: 'texto' },
+      { id: 'm15', remetente: 'lara', texto: 'Boleto atualizado enviado. Vencimento: 10/04/2025.', data_hora: '2025-04-03 16:50', tipo: 'boleto' },
+    ]
+  },
+  {
+    id: 'conv4', codcli: '11023', cliente: 'Mercantil Oliveira e Filhos', telefone: '(92) 99645-3210', wa_id: '5592996453210',
+    status: 'Aguardando resposta', etapa: 'D+3', origem: 'Régua ativa', inicio: '2025-04-02 11:15', ultima_interacao: '2025-04-02 11:20',
+    total_mensagens: 2, encerrada: false, responsavel: 'Lara Automação',
+    mensagens: [
+      { id: 'm16', remetente: 'lara', texto: 'Olá! Identificamos títulos em aberto no seu cadastro. Gostaríamos de ajudar a regularizar sua situação.', data_hora: '2025-04-02 11:15', tipo: 'texto' },
+      { id: 'm17', remetente: 'lara', texto: 'Você possui 2 títulos totalizando R$ 5.430,00. Deseja receber boleto ou chave PIX?', data_hora: '2025-04-02 11:20', tipo: 'texto' },
+    ]
+  },
+  {
+    id: 'conv5', codcli: '11345', cliente: 'Belém Center Magazine Ltda', telefone: '(91) 98756-4321', wa_id: '5591987564321',
+    status: 'PIX enviado', etapa: 'D+7', origem: 'Receptivo', inicio: '2025-04-04 09:45', ultima_interacao: '2025-04-04 10:05',
+    total_mensagens: 5, encerrada: false, responsavel: 'Lara Automação',
+    mensagens: [
+      { id: 'm18', remetente: 'cliente', texto: 'Olá, preciso pagar uns títulos. Vocês aceitam PIX?', data_hora: '2025-04-04 09:45', tipo: 'texto' },
+      { id: 'm19', remetente: 'lara', texto: 'Olá! Sim, aceitamos PIX. Vou localizar seus títulos. Qual seu código de cliente ou CNPJ?', data_hora: '2025-04-04 09:46', tipo: 'texto' },
+      { id: 'm20', remetente: 'cliente', texto: 'Código 11345', data_hora: '2025-04-04 09:50', tipo: 'texto' },
+      { id: 'm21', remetente: 'lara', texto: 'Localizado! Belém Center Magazine Ltda. Total em aberto: R$ 42.780,00. Vou enviar a chave PIX.', data_hora: '2025-04-04 09:55', tipo: 'texto' },
+      { id: 'm22', remetente: 'lara', texto: 'Chave PIX: financeiro@empresa.com.br — Valor: R$ 7.130,00 (parcela 3/6). Envie o comprovante após o pagamento.', data_hora: '2025-04-04 10:05', tipo: 'pix' },
+    ]
+  },
+  {
+    id: 'conv6', codcli: '11789', cliente: 'Rodrigues Revenda Colchões Ltda', telefone: '(92) 99412-6543', wa_id: '5592994126543',
+    status: 'Escalado para humano', etapa: 'D+30', origem: 'Régua ativa', inicio: '2025-04-05 07:00', ultima_interacao: '2025-04-05 07:35',
+    total_mensagens: 5, encerrada: false, responsavel: 'Operador Financeiro 02',
+    mensagens: [
+      { id: 'm23', remetente: 'lara', texto: 'Olá! Identificamos títulos vencidos há mais de 30 dias. É importante regularizar para evitar restrições.', data_hora: '2025-04-05 07:00', tipo: 'texto' },
+      { id: 'm24', remetente: 'cliente', texto: 'Preciso falar com alguém do financeiro, a situação é complicada.', data_hora: '2025-04-05 07:10', tipo: 'texto' },
+      { id: 'm25', remetente: 'lara', texto: 'Entendo. Vou encaminhar seu atendimento para um especialista. Aguarde um momento.', data_hora: '2025-04-05 07:12', tipo: 'texto' },
+      { id: 'm26', remetente: 'lara', texto: '⚙️ Atendimento escalado para Operador Financeiro 02.', data_hora: '2025-04-05 07:15', tipo: 'sistema' },
+      { id: 'm27', remetente: 'cliente', texto: 'Ok, aguardo contato.', data_hora: '2025-04-05 07:35', tipo: 'texto' },
+    ]
+  },
+  {
+    id: 'conv7', codcli: '11567', cliente: 'Amazonas Lar e Conforto Ltda', telefone: '(92) 99523-8765', wa_id: '5592995238765',
+    status: 'Opt-out ativo', etapa: '-', origem: 'Receptivo', inicio: '2025-03-28 08:30', ultima_interacao: '2025-03-28 08:50',
+    total_mensagens: 3, encerrada: true, responsavel: 'Supervisão de Cobrança',
+    mensagens: [
+      { id: 'm28', remetente: 'cliente', texto: 'Parem de me enviar mensagens, por favor.', data_hora: '2025-03-28 08:30', tipo: 'texto' },
+      { id: 'm29', remetente: 'lara', texto: 'Entendido. Vamos registrar sua solicitação de bloqueio de comunicações.', data_hora: '2025-03-28 08:32', tipo: 'texto' },
+      { id: 'm30', remetente: 'lara', texto: '⚙️ Opt-out aplicado. Nenhuma mensagem será enviada a este número.', data_hora: '2025-03-28 08:50', tipo: 'sistema' },
+    ]
+  },
+];
