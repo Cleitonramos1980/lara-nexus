@@ -1,6 +1,6 @@
 import {
-  LayoutDashboard, MessageSquare, MessagesSquare, Users, FileText, Zap, FolderOpen,
-  ShieldBan, ScrollText, Settings, Activity
+  LayoutDashboard, MessageSquare, MessagesSquare, Users, FileText, Zap, SlidersHorizontal,
+  FolderOpen, ShieldBan, ScrollText, Settings, Activity
 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
 import { useLocation } from 'react-router-dom';
