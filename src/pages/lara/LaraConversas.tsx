@@ -50,10 +50,10 @@ export default function LaraConversas() {
 
       {/* KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-        <CardKPI title="Total de Conversas" value={String(totalConversas)} icon={MessageSquare} />
-        <CardKPI title="Conversas Ativas" value={String(conversasAtivas)} icon={Phone} />
-        <CardKPI title="Aguardando Resposta" value={String(aguardandoResposta)} icon={Clock} variant={aguardandoResposta > 0 ? 'warning' : 'default'} />
-        <CardKPI title="Escaladas p/ Humano" value={String(escaladas)} icon={AlertTriangle} variant={escaladas > 0 ? 'danger' : 'default'} />
+        <CardKPI label="Total de Conversas" value={totalConversas} icon={<MessageSquare className="h-4 w-4" />} />
+        <CardKPI label="Conversas Ativas" value={conversasAtivas} icon={<Phone className="h-4 w-4" />} />
+        <CardKPI label="Aguardando Resposta" value={aguardandoResposta} icon={<Clock className="h-4 w-4" />} />
+        <CardKPI label="Escaladas p/ Humano" value={escaladas} icon={<AlertTriangle className="h-4 w-4" />} />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-[400px_1fr] gap-4 h-[calc(100vh-280px)]">
