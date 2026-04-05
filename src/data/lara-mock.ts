@@ -125,8 +125,8 @@ export interface ReguaExecucao {
 }
 
 export function maskCpfCnpj(doc: string): string {
-  if (doc.length === 14) return doc.replace(/(\d{2})\d{3}\.\d{3}\/\d{4}-(\d{2})/, '$1.***.***/$2');
-  if (doc.length === 11) return doc.replace(/(\d{3})\d{3}\d{3}(\d{2})/, '$1.***.***-$2');
+  if (doc.length === 14) return `${doc.slice(0, 2)}.***.***/****-${doc.slice(12)}`;
+  if (doc.length === 11) return `${doc.slice(0, 3)}.***.**-${doc.slice(9)}`;
   return '***';
 }
 
