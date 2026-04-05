@@ -1,5 +1,5 @@
 import {
-  LayoutDashboard, MessageSquare, Users, FileText, Zap, FolderOpen,
+  LayoutDashboard, MessageSquare, MessagesSquare, Users, FileText, Zap, FolderOpen,
   ShieldBan, ScrollText, Settings, Activity
 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
@@ -12,6 +12,7 @@ import {
 const items = [
   { title: 'Dashboard', url: '/lara/dashboard', icon: LayoutDashboard },
   { title: 'Atendimentos', url: '/lara/atendimentos', icon: MessageSquare },
+  { title: 'Conversas', url: '/lara/conversas', icon: MessagesSquare },
   { title: 'Clientes', url: '/lara/clientes', icon: Users },
   { title: 'Títulos', url: '/lara/titulos', icon: FileText },
   { title: 'Régua Ativa', url: '/lara/regua-ativa', icon: Zap },

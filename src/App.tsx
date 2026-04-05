@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "./pages/NotFound.tsx";
 import LaraDashboard from "./pages/lara/LaraDashboard.tsx";
 import LaraAtendimentos from "./pages/lara/LaraAtendimentos.tsx";
+import LaraConversas from "./pages/lara/LaraConversas.tsx";
 import LaraClientes from "./pages/lara/LaraClientes.tsx";
 import LaraClienteDetalhe from "./pages/lara/LaraClienteDetalhe.tsx";
 import LaraTitulos from "./pages/lara/LaraTitulos.tsx";
@@ -28,6 +29,7 @@ const App = () => (
           <Route path="/" element={<Navigate to="/lara/dashboard" replace />} />
           <Route path="/lara/dashboard" element={<LaraDashboard />} />
           <Route path="/lara/atendimentos" element={<LaraAtendimentos />} />
+          <Route path="/lara/conversas" element={<LaraConversas />} />
           <Route path="/lara/clientes" element={<LaraClientes />} />
           <Route path="/lara/clientes/:id" element={<LaraClienteDetalhe />} />
           <Route path="/lara/titulos" element={<LaraTitulos />} />
