@@ -100,6 +100,31 @@ export interface OptoutItem {
   observacao: string;
 }
 
+export interface Mensagem {
+  id: string;
+  remetente: 'lara' | 'cliente';
+  texto: string;
+  data_hora: string;
+  tipo: 'texto' | 'boleto' | 'pix' | 'sistema';
+}
+
+export interface Conversa {
+  id: string;
+  codcli: string;
+  cliente: string;
+  telefone: string;
+  wa_id: string;
+  status: string;
+  etapa: string;
+  origem: string;
+  inicio: string;
+  ultima_interacao: string;
+  total_mensagens: number;
+  mensagens: Mensagem[];
+  encerrada: boolean;
+  responsavel: string;
+}
+
 export interface ReguaEtapa {
   etapa: string;
   elegivel: number;
