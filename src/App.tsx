@@ -11,6 +11,7 @@ import LaraClientes from "./pages/lara/LaraClientes.tsx";
 import LaraClienteDetalhe from "./pages/lara/LaraClienteDetalhe.tsx";
 import LaraTitulos from "./pages/lara/LaraTitulos.tsx";
 import LaraReguaAtiva from "./pages/lara/LaraReguaAtiva.tsx";
+import LaraReguaConfig from "./pages/lara/LaraReguaConfig.tsx";
 import LaraCases from "./pages/lara/LaraCases.tsx";
 import LaraOptout from "./pages/lara/LaraOptout.tsx";
 import LaraLogs from "./pages/lara/LaraLogs.tsx";
