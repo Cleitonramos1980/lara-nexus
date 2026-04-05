@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "./pages/NotFound.tsx";
 import LaraDashboard from "./pages/lara/LaraDashboard.tsx";
 import LaraAtendimentos from "./pages/lara/LaraAtendimentos.tsx";
+import LaraConversas from "./pages/lara/LaraConversas.tsx";
 import LaraClientes from "./pages/lara/LaraClientes.tsx";
 import LaraClienteDetalhe from "./pages/lara/LaraClienteDetalhe.tsx";
 import LaraTitulos from "./pages/lara/LaraTitulos.tsx";
