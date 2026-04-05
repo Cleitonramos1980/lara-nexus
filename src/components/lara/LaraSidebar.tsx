@@ -1,5 +1,5 @@
 import {
-  LayoutDashboard, MessageSquare, Users, FileText, Zap, FolderOpen,
+  LayoutDashboard, MessageSquare, MessagesSquare, Users, FileText, Zap, FolderOpen,
   ShieldBan, ScrollText, Settings, Activity
 } from 'lucide-react';
 import { NavLink } from '@/components/NavLink';
