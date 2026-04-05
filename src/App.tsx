@@ -35,6 +35,7 @@ const App = () => (
           <Route path="/lara/clientes/:id" element={<LaraClienteDetalhe />} />
           <Route path="/lara/titulos" element={<LaraTitulos />} />
           <Route path="/lara/regua-ativa" element={<LaraReguaAtiva />} />
+          <Route path="/lara/regua-config" element={<LaraReguaConfig />} />
           <Route path="/lara/cases" element={<LaraCases />} />
           <Route path="/lara/optout" element={<LaraOptout />} />
           <Route path="/lara/logs" element={<LaraLogs />} />

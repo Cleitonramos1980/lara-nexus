@@ -16,6 +16,7 @@ const items = [
   { title: 'Clientes', url: '/lara/clientes', icon: Users },
   { title: 'Títulos', url: '/lara/titulos', icon: FileText },
   { title: 'Régua Ativa', url: '/lara/regua-ativa', icon: Zap },
+  { title: 'Parametrização Régua', url: '/lara/regua-config', icon: SlidersHorizontal },
   { title: 'Cases', url: '/lara/cases', icon: FolderOpen },
   { title: 'Opt-out', url: '/lara/optout', icon: ShieldBan },
   { title: 'Logs e Auditoria', url: '/lara/logs', icon: ScrollText },
