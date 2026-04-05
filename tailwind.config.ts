@@ -57,6 +57,17 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
+        lara: {
+          success: "hsl(var(--lara-success))",
+          "success-foreground": "hsl(var(--lara-success-foreground))",
+          warning: "hsl(var(--lara-warning))",
+          "warning-foreground": "hsl(var(--lara-warning-foreground))",
+          info: "hsl(var(--lara-info))",
+          "info-foreground": "hsl(var(--lara-info-foreground))",
+          critical: "hsl(var(--lara-critical))",
+          "critical-foreground": "hsl(var(--lara-critical-foreground))",
+          surface: "hsl(var(--lara-surface))",
+        },
       },
       borderRadius: {
         lg: "var(--radius)",
