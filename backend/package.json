@@ -1,0 +1,42 @@
+{
+  "name": "sgq-backend",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/server.js",
+    "test:lara": "tsx --test src/modules/lara/__tests__/*.test.ts",
+    "lara:sync-diario": "tsx scripts/lara-sync-diario.ts",
+    "oracle:explain": "node scripts/oracle-explain-plan.mjs",
+    "auditoria-cartao:test-consolidado": "tsx scripts/test-auditoria-cartao-consolidado.ts",
+    "auditoria-cartao:test-divergencias": "tsx scripts/test-auditoria-cartao-divergencias-granularidade.ts",
+    "auditoria-cartao:test-fallback-parcelado": "tsx scripts/test-auditoria-cartao-fallback-parcelado.ts",
+    "auditoria-cartao:test-matching-parcelado": "tsx scripts/test-auditoria-cartao-matching-parcelado.ts",
+    "auditoria-cartao:test-pcprest-mapeamento": "tsx scripts/test-auditoria-cartao-pcprest-mapeamento.ts",
+    "auditoria-cartao:test-pcprest-planilha": "tsx scripts/test-auditoria-cartao-pcprest-planilha.ts",
+    "auditoria-cartao:test-status-ignorado": "tsx scripts/test-auditoria-cartao-status-ignorado.ts",
+    "baixa:analise-pcprest": "tsx scripts/analise-baixa-pcprest.ts",
+    "pcprest:abertos": "tsx scripts/consulta-pcprest-abertos.ts",
+    "inspecoes:import": "tsx scripts/import-inspecoes-planilha.ts",
+    "inspecoes:import:force": "tsx scripts/import-inspecoes-planilha.ts --force",
+    "inspecoes:validate-schema": "tsx scripts/validate-inspecoes-schema.ts",
+    "inspecoes:import:abas-especificas": "tsx scripts/import-inspecoes-abas-especificas.ts",
+    "inspecoes:import:checklist": "tsx scripts/import-inspecoes-checklist.ts"
+  },
+  "dependencies": {
+    "@fastify/cors": "^11.0.0",
+    "@fastify/multipart": "^9.4.0",
+    "dotenv": "^16.6.1",
+    "fastify": "^5.6.1",
+    "oracledb": "^6.10.0",
+    "xlsx": "^0.18.5",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/node": "^24.6.0",
+    "tsx": "^4.20.6",
+    "typescript": "^5.9.3"
+  }
+}

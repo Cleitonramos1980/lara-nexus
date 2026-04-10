@@ -1,0 +1,17 @@
+# Local environment
+.env
+.env.*
+!.env.example
+
+# Build and dependencies
+node_modules/
+dist/
+
+# Runtime artifacts
+uploads/
+*.log
+tmp-*.log
+.tmp-*.log
+
+# Local data snapshots
+data/
