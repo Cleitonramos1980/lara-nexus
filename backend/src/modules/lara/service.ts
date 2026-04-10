@@ -89,6 +89,28 @@ type LaraSyncStatus = {
   };
 };
 
+type LaraBoletoPayload = {
+  tipo: "boleto";
+  codcli: string;
+  cliente: string;
+  total: number;
+  duplicatas: string[];
+  url_boleto: string;
+  linha_digitavel: string;
+};
+
+type LaraPixPayload = {
+  tipo: "pix";
+  codcli: string;
+  cliente: string;
+  total: number;
+  duplicatas: string[];
+  chave_pix: string;
+  pix_copia_cola: string;
+};
+
+type LaraPagamentoPayload = LaraBoletoPayload | LaraPixPayload;
+
 function parseDuplicatas(raw: string | null | undefined): string[] {
   return String(raw ?? "")
     .split(/[;,|]/g)
@@ -1620,7 +1642,28 @@ export class LaraService {
     return filtered.length ? filtered : titulos;
   }
 
-  private async gerarPayloadPagamento(tipo: "boleto" | "pix", cliente: LaraCliente, titulos: LaraTitulo[]) {
+  private buildMensagemPagamento(payload: LaraPagamentoPayload): string {
+    const totalFmt = Number(payload.total ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+
+    if (payload.tipo === "boleto") {
+      const partes = [`Segue o boleto atualizado. Valor total ${totalFmt}.`];
+      if (String(payload.linha_digitavel ?? "").trim()) {
+        partes.push(`Linha digitavel: ${payload.linha_digitavel}`);
+      }
+      if (String(payload.url_boleto ?? "").trim()) {
+        partes.push(`URL boleto: ${payload.url_boleto}`);
+      }
+      return partes.join("\n");
+    }
+
+    const partes = [`Segue PIX copia e cola para pagamento no valor de ${totalFmt}.`];
+    if (String(payload.pix_copia_cola ?? "").trim()) {
+      partes.push("", "PIX copia e cola:", payload.pix_copia_cola);
+    }
+    return partes.join("\n");
+  }
+
+  private async gerarPayloadPagamento(tipo: "boleto" | "pix", cliente: LaraCliente, titulos: LaraTitulo[]): Promise<LaraPagamentoPayload> {
     const total = roundMoney(titulos.reduce((sum, item) => sum + item.valor, 0));
     const duplicatas = titulos.map((item) => item.duplicata);
     if (tipo === "boleto") {
@@ -1694,7 +1737,7 @@ export class LaraService {
       origem: string;
       solicitante: string;
     },
-  ) {
+  ): Promise<LaraPagamentoPayload> {
     const cliente = await this.getCliente(input.codcli);
     if (!cliente) {
       throw new Error("Cliente nÃ£o encontrado para envio de pagamento.");
@@ -1710,10 +1753,7 @@ export class LaraService {
     );
     const payload = await this.gerarPayloadPagamento(tipo, cliente, titulos);
 
-    const messageText =
-      tipo === "boleto"
-        ? `Segue o boleto atualizado. Valor total ${payload.total.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}.`
-        : `Segue PIX copia e cola para pagamento no valor de ${payload.total.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}.`;
+    const messageText = this.buildMensagemPagamento(payload);
 
     await laraOperationalStore.addMessageLog({
       wa_id: cliente.wa_id,
@@ -2371,9 +2411,10 @@ export class LaraService {
         confidence: nlu.confidence,
         intent,
       });
+      const mensagemFinal = this.buildMensagemPagamento(payload);
       return {
         status: "ok",
-        mensagem: "Boleto enviado com sucesso.",
+        mensagem: mensagemFinal,
         acao: "enviar_boleto",
         wa_id: waId,
         codcli: cliente.codcli,
@@ -2402,9 +2443,10 @@ export class LaraService {
         confidence: nlu.confidence,
         intent,
       });
+      const mensagemFinal = this.buildMensagemPagamento(payload);
       return {
         status: "ok",
-        mensagem: "PIX enviado com sucesso.",
+        mensagem: mensagemFinal,
         acao: "enviar_pix",
         wa_id: waId,
         codcli: cliente.codcli,
