@@ -1,0 +1,21 @@
+Lara + Uazapi (n8n Cloud 2.13.3) - Single Webhook
+
+Arquivo para importar no n8n:
+- n8n-cloud-2.13.3-lara-whatsapp-uazapi-single-webhook.json
+
+Configurar webhook da instancia Uazapi:
+- Endpoint Uazapi: POST /webhook
+- URL webhook: https://SEU_N8N/webhook/lara-uazapi-callback
+- Events: messages, messages_update
+- (opcional) addUrlEvents=true e addUrlTypesMessages=true
+
+Variaveis no n8n:
+- LARA_BASE_URL
+- LARA_API_KEY
+- LARA_TENANT_ID (opcional)
+- UAZAPI_BASE_URL (ex.: https://api.uazapi.com)
+- UAZAPI_INSTANCE_TOKEN
+
+Envio de mensagem Uazapi:
+- Endpoint: POST /send/text
+- Header: token + convert:true
