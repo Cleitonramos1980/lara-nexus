@@ -1,10 +1,12 @@
 import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { LaraLayout } from '@/components/lara/LaraLayout';
 import { PageHeader } from '@/components/lara/PageHeader';
 import { FilterBar } from '@/components/lara/FilterBar';
 import { EmptyState } from '@/components/lara/EmptyState';
-import { mockCases, formatCurrency } from '@/data/lara-mock';
-import { Badge } from '@/components/ui/badge';
+import { formatCurrency } from '@/data/lara-mock';
+import { getCases } from '@/services/laraApi';
+import { useLaraFiliaisFilter } from '@/contexts/LaraFiliaisContext';
 
 const acaoColors: Record<string, string> = {
   PAGAMENTO_ENVIADO: 'bg-emerald-100 text-emerald-800',
@@ -16,20 +18,30 @@ const acaoColors: Record<string, string> = {
   OPTOUT_CLEAR: 'bg-emerald-100 text-emerald-700',
   BOLETO_REENVIADO: 'bg-amber-100 text-amber-800',
   ERRO_OPERACIONAL: 'bg-red-100 text-red-800',
+  ESCALACAO_HUMANA: 'bg-orange-100 text-orange-800',
 };
 
 export default function LaraCases() {
   const [search, setSearch] = useState('');
+  const { filiaisApiParam, selectedFiliaisKey } = useLaraFiliaisFilter();
 
-  const filtered = mockCases.filter(c =>
+  const { data } = useQuery({
+    queryKey: ['lara-cases', selectedFiliaisKey],
+    queryFn: () => getCases({ filiais: filiaisApiParam }),
+    staleTime: 30_000,
+  });
+
+  const cases = data ?? [];
+
+  const filtered = cases.filter(c =>
     !search || c.cliente.toLowerCase().includes(search.toLowerCase()) ||
     c.codcli.includes(search) || c.acao.toLowerCase().includes(search.toLowerCase())
   );
 
   return (
     <LaraLayout>
-      <PageHeader title="Cases" subtitle="Histórico operacional de ações da cobrança" />
-      <FilterBar searchValue={search} onSearchChange={setSearch} searchPlaceholder="Buscar por cliente, codcli, ação..." />
+      <PageHeader title="Cases" subtitle="Historico operacional de acoes da cobranca" />
+      <FilterBar searchValue={search} onSearchChange={setSearch} searchPlaceholder="Buscar por cliente, codcli, acao..." />
 
       {filtered.length === 0 ? <EmptyState /> : (
         <div className="rounded-lg border bg-card overflow-hidden">
@@ -37,7 +49,7 @@ export default function LaraCases() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b bg-muted/30">
-                  {['Data/Hora', 'Ação', 'Cliente', 'Codcli', 'Duplicatas', 'Valor', 'Pagamento', 'Origem', 'Responsável', 'Detalhe'].map(h => (
+                  {['Data/Hora', 'Acao', 'Cliente', 'Codcli', 'Duplicatas', 'Valor', 'Pagamento', 'Origem', 'Responsavel', 'Detalhe'].map(h => (
                     <th key={h} className="text-left py-3 px-2 text-xs font-medium text-muted-foreground uppercase tracking-wider">{h}</th>
                   ))}
                 </tr>
@@ -67,3 +79,4 @@ export default function LaraCases() {
     </LaraLayout>
   );
 }
+

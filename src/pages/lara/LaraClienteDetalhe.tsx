@@ -1,31 +1,57 @@
-import { useParams, useNavigate } from 'react-router-dom';
+﻿import { useParams, useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { LaraLayout } from '@/components/lara/LaraLayout';
 import { PageHeader } from '@/components/lara/PageHeader';
 import { StatusBadge } from '@/components/lara/StatusBadge';
 import { RiskBadge } from '@/components/lara/RiskBadge';
 import { EtapaReguaBadge } from '@/components/lara/EtapaReguaBadge';
 import { EmptyState } from '@/components/lara/EmptyState';
-import { mockClientes, mockTitulos, mockCases, maskCpfCnpj, formatCurrency } from '@/data/lara-mock';
+import { maskCpfCnpj, formatCurrency } from '@/data/lara-mock';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ArrowLeft, ShieldBan } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { getCliente, getClienteCases, getClienteConversas, getClienteTitulos } from '@/services/laraApi';
 
 export default function LaraClienteDetalhe() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const cliente = mockClientes.find(c => c.codcli === id);
+
+  const { data: cliente } = useQuery({
+    queryKey: ['lara-cliente', id],
+    queryFn: () => getCliente(id || ''),
+    enabled: Boolean(id),
+  });
+
+  const { data: titulosData } = useQuery({
+    queryKey: ['lara-cliente-titulos', id],
+    queryFn: () => getClienteTitulos(id || ''),
+    enabled: Boolean(id),
+  });
+
+  const { data: casesData } = useQuery({
+    queryKey: ['lara-cliente-cases', id],
+    queryFn: () => getClienteCases(id || ''),
+    enabled: Boolean(id),
+  });
+
+  const { data: conversasData } = useQuery({
+    queryKey: ['lara-cliente-conversas', id],
+    queryFn: () => getClienteConversas(id || ''),
+    enabled: Boolean(id),
+  });
 
   if (!cliente) {
     return (
       <LaraLayout>
-        <EmptyState title="Cliente não encontrado" description="O cliente solicitado não foi localizado." />
+        <EmptyState title="Cliente nao encontrado" description="O cliente solicitado nao foi localizado." />
       </LaraLayout>
     );
   }
 
-  const titulos = mockTitulos.filter(t => t.codcli === cliente.codcli);
-  const cases = mockCases.filter(c => c.codcli === cliente.codcli);
+  const titulos = titulosData ?? [];
+  const cases = casesData ?? [];
+  const conversas = conversasData ?? [];
 
   return (
     <LaraLayout>
@@ -47,21 +73,20 @@ export default function LaraClienteDetalhe() {
         }
       />
 
-      {/* Resumo */}
       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-3 mb-6">
         {[
           { label: 'Telefone', value: cliente.telefone },
           { label: 'wa_id', value: cliente.wa_id },
           { label: 'CPF/CNPJ', value: maskCpfCnpj(cliente.cpf_cnpj) },
           { label: 'Total em Aberto', value: formatCurrency(cliente.total_aberto) },
-          { label: 'Qtd. Títulos', value: String(cliente.qtd_titulos) },
-          { label: 'Título Mais Antigo', value: cliente.titulo_mais_antigo },
-          { label: 'Próx. Vencimento', value: cliente.proximo_vencimento },
-          { label: 'Último Contato', value: cliente.ultimo_contato },
-          { label: 'Última Ação', value: cliente.ultima_acao },
-          { label: 'Próxima Ação', value: cliente.proxima_acao },
-          { label: 'Responsável', value: cliente.responsavel },
-          { label: 'Etapa Régua', value: cliente.etapa_regua },
+          { label: 'Qtd. Titulos', value: String(cliente.qtd_titulos) },
+          { label: 'Titulo Mais Antigo', value: cliente.titulo_mais_antigo },
+          { label: 'Prox. Vencimento', value: cliente.proximo_vencimento },
+          { label: 'Ultimo Contato', value: cliente.ultimo_contato },
+          { label: 'Ultima Acao', value: cliente.ultima_acao },
+          { label: 'Proxima Acao', value: cliente.proxima_acao },
+          { label: 'Responsavel', value: cliente.responsavel },
+          { label: 'Etapa Regua', value: cliente.etapa_regua },
         ].map(item => (
           <div key={item.label} className="rounded-lg border bg-card p-3">
             <span className="text-[10px] text-muted-foreground uppercase tracking-wide">{item.label}</span>
@@ -72,21 +97,21 @@ export default function LaraClienteDetalhe() {
 
       <Tabs defaultValue="titulos" className="w-full">
         <TabsList className="mb-4">
-          <TabsTrigger value="titulos">Títulos ({titulos.length})</TabsTrigger>
+          <TabsTrigger value="titulos">Titulos ({titulos.length})</TabsTrigger>
           <TabsTrigger value="cases">Cases ({cases.length})</TabsTrigger>
-          <TabsTrigger value="conversas">Conversas</TabsTrigger>
-          <TabsTrigger value="regua">Régua Ativa</TabsTrigger>
+          <TabsTrigger value="conversas">Conversas ({conversas.length})</TabsTrigger>
+          <TabsTrigger value="regua">Regua Ativa</TabsTrigger>
         </TabsList>
 
         <TabsContent value="titulos">
           {titulos.length === 0 ? (
-            <EmptyState title="Sem títulos" description="Nenhum título encontrado para este cliente." />
+            <EmptyState title="Sem titulos" description="Nenhum titulo encontrado para este cliente." />
           ) : (
             <div className="rounded-lg border bg-card overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b bg-muted/30">
-                    {['Duplicata', 'Prestação', 'Valor', 'Vencimento', 'Atraso', 'Etapa', 'Status', 'Boleto'].map(h => (
+                    {['Duplicata', 'Prestacao', 'Valor', 'Vencimento', 'Atraso', 'Etapa', 'Status', 'Boleto'].map(h => (
                       <th key={h} className="text-left py-3 px-3 text-xs font-medium text-muted-foreground">{h}</th>
                     ))}
                   </tr>
@@ -103,7 +128,7 @@ export default function LaraClienteDetalhe() {
                       <td className="py-2 px-3"><StatusBadge status={t.status_atendimento} /></td>
                       <td className="py-2 px-3">
                         <Badge variant={t.boleto_disponivel ? 'default' : 'secondary'} className="text-[10px]">
-                          {t.boleto_disponivel ? 'Sim' : 'Não'}
+                          {t.boleto_disponivel ? 'Sim' : 'Nao'}
                         </Badge>
                       </td>
                     </tr>
@@ -140,13 +165,28 @@ export default function LaraClienteDetalhe() {
         </TabsContent>
 
         <TabsContent value="conversas">
-          <EmptyState title="Histórico de conversas" description="O histórico completo será exibido após integração com o backend." />
+          {conversas.length === 0 ? (
+            <EmptyState title="Sem conversas" description="Nao existem conversas registradas para este cliente." />
+          ) : (
+            <div className="space-y-3">
+              {conversas.map(conv => (
+                <div key={conv.id} className="rounded-lg border bg-card p-4">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-medium text-foreground">{conv.status}</p>
+                    <span className="text-[10px] text-muted-foreground">{conv.ultima_interacao}</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">{conv.total_mensagens} mensagens · {conv.origem}</p>
+                </div>
+              ))}
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="regua">
-          <EmptyState title="Régua ativa" description="O histórico de régua ativa será exibido após integração com o backend." />
+          <EmptyState title="Regua ativa" description="Historico detalhado da regua sera exibido nesta aba." />
         </TabsContent>
       </Tabs>
     </LaraLayout>
   );
 }
+

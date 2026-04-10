@@ -1,4 +1,5 @@
-import { useState } from 'react';
+﻿import { useEffect, useState } from 'react';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { LaraLayout } from '@/components/lara/LaraLayout';
 import { PageHeader } from '@/components/lara/PageHeader';
 import { Badge } from '@/components/ui/badge';
@@ -14,6 +15,7 @@ import {
   Save, AlertTriangle, CheckCircle, Ban, ArrowRight
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { getReguaConfig, saveReguaConfig } from '@/services/laraApi';
 
 interface EtapaRegua {
   id: string;
@@ -38,57 +40,95 @@ const initialEtapas: EtapaRegua[] = [
     id: 'e1', codigo: 'D-3', nome: 'Preventivo 3 dias antes', dias: -3, tipo: 'preventivo',
     ativo: true, horario_inicio: '08:00', horario_fim: '18:00', cooldown_horas: 24,
     respeitar_optout: true, canal: 'WhatsApp', max_tentativas: 1, prioridade: 1,
-    mensagem_template: 'Olá {cliente}! Lembramos que o título {duplicata} no valor de {valor} vence em {vencimento}. Deseja receber o boleto atualizado?',
+    mensagem_template: 'OlÃ¡ {cliente}! Lembramos que o tÃ­tulo {duplicata} no valor de {valor} vence em {vencimento}. Deseja receber o boleto atualizado?',
     acoes: ['Enviar boleto', 'Enviar PIX'],
   },
   {
     id: 'e2', codigo: 'D0', nome: 'Dia do vencimento', dias: 0, tipo: 'reativo',
     ativo: true, horario_inicio: '08:00', horario_fim: '18:00', cooldown_horas: 24,
     respeitar_optout: true, canal: 'WhatsApp', max_tentativas: 2, prioridade: 2,
-    mensagem_template: 'Olá {cliente}! Hoje é o vencimento do título {duplicata} no valor de {valor}. Efetue o pagamento para evitar encargos.',
+    mensagem_template: 'OlÃ¡ {cliente}! Hoje Ã© o vencimento do tÃ­tulo {duplicata} no valor de {valor}. Efetue o pagamento para evitar encargos.',
     acoes: ['Enviar boleto', 'Enviar PIX', 'Registrar promessa'],
   },
   {
-    id: 'e3', codigo: 'D+3', nome: '3 dias após vencimento', dias: 3, tipo: 'reativo',
+    id: 'e3', codigo: 'D+3', nome: '3 dias apÃ³s vencimento', dias: 3, tipo: 'reativo',
     ativo: true, horario_inicio: '09:00', horario_fim: '17:00', cooldown_horas: 48,
     respeitar_optout: true, canal: 'WhatsApp', max_tentativas: 2, prioridade: 3,
-    mensagem_template: 'Olá {cliente}! O título {duplicata} venceu há 3 dias. Valor atualizado: {valor}. Regularize para evitar restrições.',
-    acoes: ['Enviar boleto', 'Enviar PIX', 'Registrar promessa', 'Negociação'],
+    mensagem_template: 'OlÃ¡ {cliente}! O tÃ­tulo {duplicata} venceu hÃ¡ 3 dias. Valor atualizado: {valor}. Regularize para evitar restriÃ§Ãµes.',
+    acoes: ['Enviar boleto', 'Enviar PIX', 'Registrar promessa', 'NegociaÃ§Ã£o'],
   },
   {
-    id: 'e4', codigo: 'D+7', nome: '7 dias após vencimento', dias: 7, tipo: 'reativo',
+    id: 'e4', codigo: 'D+7', nome: '7 dias apÃ³s vencimento', dias: 7, tipo: 'reativo',
     ativo: true, horario_inicio: '09:00', horario_fim: '17:00', cooldown_horas: 48,
     respeitar_optout: true, canal: 'WhatsApp', max_tentativas: 2, prioridade: 4,
-    mensagem_template: 'Olá {cliente}! Você possui títulos vencidos há mais de 7 dias totalizando {valor}. Entre em contato para negociar.',
-    acoes: ['Enviar boleto', 'Enviar PIX', 'Registrar promessa', 'Negociação', 'Escalar para humano'],
+    mensagem_template: 'OlÃ¡ {cliente}! VocÃª possui tÃ­tulos vencidos hÃ¡ mais de 7 dias totalizando {valor}. Entre em contato para negociar.',
+    acoes: ['Enviar boleto', 'Enviar PIX', 'Registrar promessa', 'NegociaÃ§Ã£o', 'Escalar para humano'],
   },
   {
-    id: 'e5', codigo: 'D+15', nome: '15 dias após vencimento', dias: 15, tipo: 'reativo',
+    id: 'e5', codigo: 'D+15', nome: '15 dias apÃ³s vencimento', dias: 15, tipo: 'reativo',
     ativo: false, horario_inicio: '09:00', horario_fim: '16:00', cooldown_horas: 72,
     respeitar_optout: true, canal: 'WhatsApp', max_tentativas: 3, prioridade: 5,
-    mensagem_template: 'Olá {cliente}! Seus títulos estão vencidos há mais de 15 dias. Valor total: {valor}. É importante regularizar sua situação.',
-    acoes: ['Enviar boleto', 'Negociação', 'Escalar para humano'],
+    mensagem_template: 'OlÃ¡ {cliente}! Seus tÃ­tulos estÃ£o vencidos hÃ¡ mais de 15 dias. Valor total: {valor}. Ã‰ importante regularizar sua situaÃ§Ã£o.',
+    acoes: ['Enviar boleto', 'NegociaÃ§Ã£o', 'Escalar para humano'],
   },
   {
-    id: 'e6', codigo: 'D+30', nome: '30 dias após vencimento', dias: 30, tipo: 'reativo',
+    id: 'e6', codigo: 'D+30', nome: '30 dias apÃ³s vencimento', dias: 30, tipo: 'reativo',
     ativo: true, horario_inicio: '09:00', horario_fim: '16:00', cooldown_horas: 72,
     respeitar_optout: true, canal: 'WhatsApp', max_tentativas: 3, prioridade: 6,
-    mensagem_template: 'Olá {cliente}! Títulos vencidos há mais de 30 dias. Valor: {valor}. Restrições podem ser aplicadas. Regularize urgente.',
-    acoes: ['Negociação', 'Escalar para humano'],
+    mensagem_template: 'OlÃ¡ {cliente}! TÃ­tulos vencidos hÃ¡ mais de 30 dias. Valor: {valor}. RestriÃ§Ãµes podem ser aplicadas. Regularize urgente.',
+    acoes: ['NegociaÃ§Ã£o', 'Escalar para humano'],
   },
 ];
 
 const ACOES_DISPONIVEIS = [
-  'Enviar boleto', 'Enviar PIX', 'Registrar promessa', 'Negociação',
-  'Escalar para humano', 'Notificar supervisão', 'Bloquear crédito',
+  'Enviar boleto', 'Enviar PIX', 'Registrar promessa', 'NegociaÃ§Ã£o',
+  'Escalar para humano', 'Notificar supervisÃ£o', 'Bloquear crÃ©dito',
 ];
 
 export default function LaraReguaConfig() {
   const [etapas, setEtapas] = useState<EtapaRegua[]>(initialEtapas);
   const [selectedId, setSelectedId] = useState<string>(etapas[0]?.id || '');
   const [saved, setSaved] = useState(false);
+  const { data: reguaConfig } = useQuery({
+    queryKey: ['lara-regua-config'],
+    queryFn: getReguaConfig,
+    staleTime: 60_000,
+  });
+
+  const saveMutation = useMutation({
+    mutationFn: saveReguaConfig,
+    onSuccess: () => {
+      setSaved(true);
+      setTimeout(() => setSaved(false), 3000);
+    },
+  });
 
   const selected = etapas.find(e => e.id === selectedId);
+
+  useEffect(() => {
+    if (!reguaConfig?.templates?.length) return;
+    const mapped: EtapaRegua[] = reguaConfig.templates
+      .sort((a, b) => a.ordem_execucao - b.ordem_execucao)
+      .map((template, idx) => ({
+        id: template.id,
+        codigo: template.etapa,
+        nome: template.nome_template,
+        dias: Number(template.etapa.replace('D', '').replace('+', '') || 0),
+        tipo: template.etapa.includes('-') ? 'preventivo' : 'reativo',
+        ativo: template.ativo,
+        horario_inicio: '08:00',
+        horario_fim: '18:00',
+        cooldown_horas: 24,
+        respeitar_optout: true,
+        canal: template.canal,
+        mensagem_template: template.mensagem_template,
+        acoes: [],
+        max_tentativas: 2,
+        prioridade: idx + 1,
+      }));
+    setEtapas(mapped);
+    setSelectedId(mapped[0]?.id || '');
+  }, [reguaConfig]);
 
   const updateEtapa = (id: string, patch: Partial<EtapaRegua>) => {
     setEtapas(prev => prev.map(e => e.id === id ? { ...e, ...patch } : e));
@@ -102,7 +142,7 @@ export default function LaraReguaConfig() {
       ativo: false, horario_inicio: '09:00', horario_fim: '17:00', cooldown_horas: 24,
       respeitar_optout: true, canal: 'WhatsApp', max_tentativas: 1,
       prioridade: etapas.length + 1,
-      mensagem_template: 'Olá {cliente}! ...',
+      mensagem_template: 'OlÃ¡ {cliente}! ...',
       acoes: [],
     };
     setEtapas(prev => [...prev, nova]);
@@ -117,8 +157,17 @@ export default function LaraReguaConfig() {
   };
 
   const handleSave = () => {
-    setSaved(true);
-    setTimeout(() => setSaved(false), 3000);
+    saveMutation.mutate({
+      templates: etapas.map(etapa => ({
+        id: etapa.id,
+        etapa: etapa.codigo,
+        nome_template: etapa.nome,
+        canal: etapa.canal,
+        mensagem_template: etapa.mensagem_template,
+        ativo: etapa.ativo,
+        ordem_execucao: etapa.prioridade,
+      })),
+    });
   };
 
   const toggleAcao = (etapaId: string, acao: string) => {
@@ -133,15 +182,15 @@ export default function LaraReguaConfig() {
   return (
     <LaraLayout>
       <PageHeader
-        title="Parametrização da Régua"
-        subtitle="Defina etapas, prazos, mensagens e regras da régua de cobrança"
+        title="ParametrizaÃ§Ã£o da RÃ©gua"
+        subtitle="Defina etapas, prazos, mensagens e regras da rÃ©gua de cobranÃ§a"
         actions={
           <div className="flex gap-2">
             <Button variant="outline" size="sm" className="text-xs" onClick={addEtapa}>
               <Plus className="h-3 w-3 mr-1" />Nova Etapa
             </Button>
             <Button size="sm" className="text-xs" onClick={handleSave}>
-              <Save className="h-3 w-3 mr-1" />{saved ? 'Salvo!' : 'Salvar Alterações'}
+              <Save className="h-3 w-3 mr-1" />{saveMutation.isPending ? 'Salvando...' : saved ? 'Salvo!' : 'Salvar Alteracoes'}
             </Button>
           </div>
         }
@@ -150,13 +199,13 @@ export default function LaraReguaConfig() {
       {saved && (
         <div className="mb-4 flex items-center gap-2 rounded-lg border border-lara-success/30 bg-lara-success/5 p-3 text-sm text-lara-success">
           <CheckCircle className="h-4 w-4" />
-          Configurações salvas com sucesso. As alterações serão aplicadas no próximo ciclo da régua.
+          ConfiguraÃ§Ãµes salvas com sucesso. As alteraÃ§Ãµes serÃ£o aplicadas no prÃ³ximo ciclo da rÃ©gua.
         </div>
       )}
 
       {/* Timeline visual */}
       <div className="mb-6 rounded-lg border bg-card p-4">
-        <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-3">Fluxo da Régua de Cobrança</p>
+        <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-3">Fluxo da RÃ©gua de CobranÃ§a</p>
         <div className="flex items-center gap-1 overflow-x-auto pb-2">
           {etapas.sort((a, b) => a.dias - b.dias).map((etapa, i) => (
             <div key={etapa.id} className="flex items-center shrink-0">
@@ -169,7 +218,7 @@ export default function LaraReguaConfig() {
                 )}
               >
                 <p className="text-sm font-bold text-foreground">{etapa.codigo}</p>
-                <p className="text-[10px] text-muted-foreground mt-0.5">{etapa.dias < 0 ? `${Math.abs(etapa.dias)}d antes` : etapa.dias === 0 ? 'Vencimento' : `${etapa.dias}d após`}</p>
+                <p className="text-[10px] text-muted-foreground mt-0.5">{etapa.dias < 0 ? `${Math.abs(etapa.dias)}d antes` : etapa.dias === 0 ? 'Vencimento' : `${etapa.dias}d apÃ³s`}</p>
                 <div className="mt-1.5">
                   {etapa.ativo ? (
                     <Badge variant="default" className="text-[9px]">Ativo</Badge>
@@ -217,7 +266,7 @@ export default function LaraReguaConfig() {
             </ScrollArea>
           </div>
 
-          {/* Formulário da etapa */}
+          {/* FormulÃ¡rio da etapa */}
           <div className="border rounded-lg bg-card overflow-hidden">
             <div className="p-4 border-b bg-muted/20 flex items-center justify-between">
               <div className="flex items-center gap-3">
@@ -230,7 +279,7 @@ export default function LaraReguaConfig() {
                 <div>
                   <h3 className="text-sm font-bold text-foreground">{selected.nome}</h3>
                   <p className="text-[11px] text-muted-foreground">
-                    {selected.tipo === 'preventivo' ? 'Disparo preventivo' : 'Disparo reativo'} · Prioridade {selected.prioridade}
+                    {selected.tipo === 'preventivo' ? 'Disparo preventivo' : 'Disparo reativo'} Â· Prioridade {selected.prioridade}
                   </p>
                 </div>
               </div>
@@ -255,13 +304,13 @@ export default function LaraReguaConfig() {
                   <TabsList className="mb-4">
                     <TabsTrigger value="geral" className="text-xs"><Settings2 className="h-3 w-3 mr-1" />Geral</TabsTrigger>
                     <TabsTrigger value="mensagem" className="text-xs"><MessageSquare className="h-3 w-3 mr-1" />Mensagem</TabsTrigger>
-                    <TabsTrigger value="regras" className="text-xs"><Zap className="h-3 w-3 mr-1" />Regras e Ações</TabsTrigger>
+                    <TabsTrigger value="regras" className="text-xs"><Zap className="h-3 w-3 mr-1" />Regras e AÃ§Ãµes</TabsTrigger>
                   </TabsList>
 
                   <TabsContent value="geral" className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <Label className="text-xs">Código da Etapa</Label>
+                        <Label className="text-xs">CÃ³digo da Etapa</Label>
                         <Input
                           value={selected.codigo}
                           onChange={e => updateEtapa(selected.id, { codigo: e.target.value })}
@@ -281,14 +330,14 @@ export default function LaraReguaConfig() {
 
                     <div className="grid grid-cols-3 gap-4">
                       <div>
-                        <Label className="text-xs">Dias em relação ao vencimento</Label>
+                        <Label className="text-xs">Dias em relaÃ§Ã£o ao vencimento</Label>
                         <Input
                           type="number"
                           value={selected.dias}
                           onChange={e => updateEtapa(selected.id, { dias: parseInt(e.target.value) || 0 })}
                           className="mt-1 text-sm"
                         />
-                        <p className="text-[10px] text-muted-foreground mt-1">Negativo = antes, 0 = dia, positivo = após</p>
+                        <p className="text-[10px] text-muted-foreground mt-1">Negativo = antes, 0 = dia, positivo = apÃ³s</p>
                       </div>
                       <div>
                         <Label className="text-xs">Tipo</Label>
@@ -304,13 +353,13 @@ export default function LaraReguaConfig() {
                       <div>
                         <Label className="text-xs">Canal</Label>
                         <Input value={selected.canal} disabled className="mt-1 text-sm" />
-                        <p className="text-[10px] text-muted-foreground mt-1">Integração via n8n</p>
+                        <p className="text-[10px] text-muted-foreground mt-1">IntegraÃ§Ã£o via n8n</p>
                       </div>
                     </div>
 
                     <div className="grid grid-cols-3 gap-4">
                       <div>
-                        <Label className="text-xs">Horário Início</Label>
+                        <Label className="text-xs">HorÃ¡rio InÃ­cio</Label>
                         <Input
                           type="time"
                           value={selected.horario_inicio}
@@ -319,7 +368,7 @@ export default function LaraReguaConfig() {
                         />
                       </div>
                       <div>
-                        <Label className="text-xs">Horário Fim</Label>
+                        <Label className="text-xs">HorÃ¡rio Fim</Label>
                         <Input
                           type="time"
                           value={selected.horario_fim}
@@ -335,12 +384,12 @@ export default function LaraReguaConfig() {
                           onChange={e => updateEtapa(selected.id, { cooldown_horas: parseInt(e.target.value) || 0 })}
                           className="mt-1 text-sm"
                         />
-                        <p className="text-[10px] text-muted-foreground mt-1">Intervalo mínimo entre disparos</p>
+                        <p className="text-[10px] text-muted-foreground mt-1">Intervalo mÃ­nimo entre disparos</p>
                       </div>
                     </div>
 
                     <div>
-                      <Label className="text-xs">Máx. tentativas por cliente</Label>
+                      <Label className="text-xs">MÃ¡x. tentativas por cliente</Label>
                       <Input
                         type="number"
                         value={selected.max_tentativas}
@@ -357,10 +406,10 @@ export default function LaraReguaConfig() {
                         value={selected.mensagem_template}
                         onChange={e => updateEtapa(selected.id, { mensagem_template: e.target.value })}
                         className="mt-1 text-sm min-h-[140px]"
-                        placeholder="Use {cliente}, {duplicata}, {valor}, {vencimento} como variáveis..."
+                        placeholder="Use {cliente}, {duplicata}, {valor}, {vencimento} como variÃ¡veis..."
                       />
                       <p className="text-[10px] text-muted-foreground mt-1.5">
-                        Variáveis disponíveis: <code className="bg-muted px-1 rounded">{'{cliente}'}</code>{' '}
+                        VariÃ¡veis disponÃ­veis: <code className="bg-muted px-1 rounded">{'{cliente}'}</code>{' '}
                         <code className="bg-muted px-1 rounded">{'{duplicata}'}</code>{' '}
                         <code className="bg-muted px-1 rounded">{'{valor}'}</code>{' '}
                         <code className="bg-muted px-1 rounded">{'{vencimento}'}</code>{' '}
@@ -371,7 +420,7 @@ export default function LaraReguaConfig() {
 
                     {/* Preview */}
                     <div>
-                      <Label className="text-xs">Pré-visualização</Label>
+                      <Label className="text-xs">PrÃ©-visualizaÃ§Ã£o</Label>
                       <div className="mt-2 rounded-lg bg-primary/5 border border-primary/10 p-4">
                         <div className="flex items-center gap-1.5 mb-2">
                           <MessageSquare className="h-3 w-3 text-primary" />
@@ -402,8 +451,8 @@ export default function LaraReguaConfig() {
                       </div>
                       <p className="text-[10px] text-muted-foreground">
                         {selected.respeitar_optout
-                          ? 'Clientes com opt-out ativo NÃO receberão disparos desta etapa.'
-                          : '⚠️ Atenção: disparos serão enviados mesmo para clientes com opt-out.'
+                          ? 'Clientes com opt-out ativo NÃƒO receberÃ£o disparos desta etapa.'
+                          : 'âš ï¸ AtenÃ§Ã£o: disparos serÃ£o enviados mesmo para clientes com opt-out.'
                         }
                       </p>
                       {!selected.respeitar_optout && (
@@ -414,7 +463,7 @@ export default function LaraReguaConfig() {
                     </div>
 
                     <div>
-                      <Label className="text-xs mb-2 block">Ações permitidas nesta etapa</Label>
+                      <Label className="text-xs mb-2 block">AÃ§Ãµes permitidas nesta etapa</Label>
                       <div className="flex flex-wrap gap-2">
                         {ACOES_DISPONIVEIS.map(acao => (
                           <button
@@ -436,13 +485,13 @@ export default function LaraReguaConfig() {
                     <div className="rounded-lg border bg-muted/20 p-3">
                       <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-2">Resumo da Etapa</p>
                       <div className="grid grid-cols-2 gap-2 text-xs">
-                        <div><span className="text-muted-foreground">Código:</span> <strong>{selected.codigo}</strong></div>
+                        <div><span className="text-muted-foreground">CÃ³digo:</span> <strong>{selected.codigo}</strong></div>
                         <div><span className="text-muted-foreground">Dias:</span> <strong>{selected.dias}</strong></div>
-                        <div><span className="text-muted-foreground">Horário:</span> <strong>{selected.horario_inicio} – {selected.horario_fim}</strong></div>
+                        <div><span className="text-muted-foreground">HorÃ¡rio:</span> <strong>{selected.horario_inicio} â€“ {selected.horario_fim}</strong></div>
                         <div><span className="text-muted-foreground">Cooldown:</span> <strong>{selected.cooldown_horas}h</strong></div>
                         <div><span className="text-muted-foreground">Tentativas:</span> <strong>{selected.max_tentativas}</strong></div>
-                        <div><span className="text-muted-foreground">Opt-out:</span> <strong>{selected.respeitar_optout ? 'Sim' : 'Não'}</strong></div>
-                        <div className="col-span-2"><span className="text-muted-foreground">Ações:</span> <strong>{selected.acoes.join(', ') || 'Nenhuma'}</strong></div>
+                        <div><span className="text-muted-foreground">Opt-out:</span> <strong>{selected.respeitar_optout ? 'Sim' : 'NÃ£o'}</strong></div>
+                        <div className="col-span-2"><span className="text-muted-foreground">AÃ§Ãµes:</span> <strong>{selected.acoes.join(', ') || 'Nenhuma'}</strong></div>
                       </div>
                     </div>
                   </TabsContent>
@@ -459,3 +508,5 @@ export default function LaraReguaConfig() {
     </LaraLayout>
   );
 }
+
+

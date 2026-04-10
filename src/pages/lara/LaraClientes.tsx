@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { LaraLayout } from '@/components/lara/LaraLayout';
 import { PageHeader } from '@/components/lara/PageHeader';
 import { FilterBar } from '@/components/lara/FilterBar';
@@ -7,22 +8,33 @@ import { StatusBadge } from '@/components/lara/StatusBadge';
 import { RiskBadge } from '@/components/lara/RiskBadge';
 import { EtapaReguaBadge } from '@/components/lara/EtapaReguaBadge';
 import { EmptyState } from '@/components/lara/EmptyState';
-import { mockClientes, maskCpfCnpj, formatCurrency } from '@/data/lara-mock';
+import { maskCpfCnpj, formatCurrency } from '@/data/lara-mock';
 import { Eye, ShieldBan } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { getClientes } from '@/services/laraApi';
+import { useLaraFiliaisFilter } from '@/contexts/LaraFiliaisContext';
 
 export default function LaraClientes() {
   const [search, setSearch] = useState('');
   const navigate = useNavigate();
+  const { filiaisApiParam, selectedFiliaisKey } = useLaraFiliaisFilter();
 
-  const filtered = mockClientes.filter(c =>
+  const { data } = useQuery({
+    queryKey: ['lara-clientes', selectedFiliaisKey],
+    queryFn: () => getClientes({ filiais: filiaisApiParam }),
+    staleTime: 60_000,
+  });
+
+  const clientes = data ?? [];
+
+  const filtered = clientes.filter(c =>
     !search || c.cliente.toLowerCase().includes(search.toLowerCase()) ||
     c.codcli.includes(search) || c.telefone.includes(search)
   );
 
   return (
     <LaraLayout>
-      <PageHeader title="Clientes" subtitle="Base de clientes da operação de cobrança" />
+      <PageHeader title="Clientes" subtitle="Base de clientes da operacao de cobranca" />
       <FilterBar searchValue={search} onSearchChange={setSearch} searchPlaceholder="Buscar por nome, codcli, telefone..." />
 
       {filtered.length === 0 ? (
@@ -33,7 +45,7 @@ export default function LaraClientes() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b bg-muted/30">
-                  {['Codcli', 'Cliente', 'Telefone', 'CPF/CNPJ', 'Total Aberto', 'Títulos', 'Etapa', 'Status', 'Risco', 'Opt-out', ''].map(h => (
+                  {['Codcli', 'Cliente', 'Telefone', 'CPF/CNPJ', 'Total Aberto', 'Titulos', 'Etapa', 'Status', 'Risco', 'Opt-out', ''].map(h => (
                     <th key={h} className="text-left py-3 px-3 text-xs font-medium text-muted-foreground uppercase tracking-wider">{h}</th>
                   ))}
                 </tr>
@@ -66,3 +78,4 @@ export default function LaraClientes() {
     </LaraLayout>
   );
 }
+

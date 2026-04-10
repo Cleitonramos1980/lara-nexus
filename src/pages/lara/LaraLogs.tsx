@@ -1,22 +1,33 @@
 import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { LaraLayout } from '@/components/lara/LaraLayout';
 import { PageHeader } from '@/components/lara/PageHeader';
 import { CardKPI } from '@/components/lara/CardKPI';
 import { FilterBar } from '@/components/lara/FilterBar';
 import { SeverityBadge } from '@/components/lara/SeverityBadge';
 import { EmptyState } from '@/components/lara/EmptyState';
-import { mockLogs } from '@/data/lara-mock';
-import { ScrollText, AlertTriangle, XCircle, CheckCircle, ShieldBan } from 'lucide-react';
-
-const eventosHoje = mockLogs.length;
-const falhasEnvio = mockLogs.filter(l => l.severidade === 'erro').length;
-const sucessos = mockLogs.filter(l => l.severidade === 'sucesso').length;
-const bloqueados = mockLogs.filter(l => l.severidade === 'bloqueado').length;
+import { ScrollText, XCircle, CheckCircle, ShieldBan } from 'lucide-react';
+import { getLogs } from '@/services/laraApi';
+import { useLaraFiliaisFilter } from '@/contexts/LaraFiliaisContext';
 
 export default function LaraLogs() {
   const [search, setSearch] = useState('');
+  const { filiaisApiParam, selectedFiliaisKey } = useLaraFiliaisFilter();
 
-  const filtered = mockLogs.filter(l =>
+  const { data } = useQuery({
+    queryKey: ['lara-logs', selectedFiliaisKey],
+    queryFn: () => getLogs({ filiais: filiaisApiParam, limit: 2000 }),
+    staleTime: 20_000,
+  });
+
+  const logs = data ?? [];
+
+  const eventosHoje = logs.length;
+  const falhasEnvio = logs.filter(l => l.severidade === 'erro').length;
+  const sucessos = logs.filter(l => l.severidade === 'sucesso').length;
+  const bloqueados = logs.filter(l => l.severidade === 'bloqueado').length;
+
+  const filtered = logs.filter(l =>
     !search || l.cliente.toLowerCase().includes(search.toLowerCase()) ||
     l.tipo.toLowerCase().includes(search.toLowerCase()) ||
     l.mensagem.toLowerCase().includes(search.toLowerCase()) ||
@@ -42,7 +53,7 @@ export default function LaraLogs() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b bg-muted/30">
-                  {['Data/Hora', 'Severidade', 'Tipo', 'Módulo', 'Cliente', 'Codcli', 'Etapa', 'Mensagem', 'Status'].map(h => (
+                  {['Data/Hora', 'Severidade', 'Tipo', 'Modulo', 'Cliente', 'Codcli', 'Etapa', 'Mensagem', 'Status'].map(h => (
                     <th key={h} className="text-left py-3 px-2 text-xs font-medium text-muted-foreground">{h}</th>
                   ))}
                 </tr>
@@ -69,3 +80,4 @@ export default function LaraLogs() {
     </LaraLayout>
   );
 }
+

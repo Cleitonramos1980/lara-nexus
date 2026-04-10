@@ -1,0 +1,176 @@
+﻿{
+    "name":  "Lara WhatsApp Verify (Meta GET Challenge) - n8n Cloud 2.13.3",
+    "nodes":  [
+                  {
+                      "id":  "vf1",
+                      "name":  "WhatsApp Verify Webhook (GET)",
+                      "type":  "n8n-nodes-base.webhook",
+                      "typeVersion":  1,
+                      "position":  [
+                                       -760,
+                                       260
+                                   ],
+                      "webhookId":  "lara-whatsapp-verify-v2133",
+                      "parameters":  {
+                                         "path":  "lara-whatsapp-inbound",
+                                         "httpMethod":  "GET",
+                                         "responseMode":  "responseNode",
+                                         "options":  {
+
+                                                     }
+                                     }
+                  },
+                  {
+                      "id":  "vf2",
+                      "name":  "Parse Verify Query",
+                      "type":  "n8n-nodes-base.code",
+                      "typeVersion":  2,
+                      "position":  [
+                                       -500,
+                                       260
+                                   ],
+                      "parameters":  {
+                                         "mode":  "runOnceForAllItems",
+                                         "jsCode":  "const src = $input.first()?.json || {};\nconst query = (src.query \u0026\u0026 typeof src.query === \u0027object\u0027) ? src.query : src;\n\nconst mode = String(query[\u0027hub.mode\u0027] ?? query.hub_mode ?? query.mode ?? \u0027\u0027).trim();\nconst verifyToken = String(query[\u0027hub.verify_token\u0027] ?? query.hub_verify_token ?? query.verify_token ?? \u0027\u0027).trim();\nconst challenge = String(query[\u0027hub.challenge\u0027] ?? query.hub_challenge ?? query.challenge ?? \u0027\u0027).trim();\n\nconst expectedToken = String($env.WHATSAPP_VERIFY_TOKEN || \u0027\u0027).trim();\n\nconst valid = Boolean(\n  mode === \u0027subscribe\u0027 \u0026\u0026\n  challenge \u0026\u0026\n  expectedToken \u0026\u0026\n  verifyToken === expectedToken\n);\n\nreturn [{\n  json: {\n    valid,\n    challenge,\n    mode,\n    error: valid ? \u0027\u0027 : \u0027invalid verify token, mode, or challenge\u0027,\n  },\n}];"
+                                     }
+                  },
+                  {
+                      "id":  "vf3",
+                      "name":  "Is Valid Verify Request?",
+                      "type":  "n8n-nodes-base.if",
+                      "typeVersion":  2.2,
+                      "position":  [
+                                       -250,
+                                       260
+                                   ],
+                      "parameters":  {
+                                         "options":  {
+
+                                                     },
+                                         "conditions":  {
+                                                            "options":  {
+                                                                            "version":  2,
+                                                                            "leftValue":  "",
+                                                                            "caseSensitive":  true,
+                                                                            "typeValidation":  "strict"
+                                                                        },
+                                                            "combinator":  "and",
+                                                            "conditions":  [
+                                                                               {
+                                                                                   "id":  "cond-vf3-1",
+                                                                                   "operator":  {
+                                                                                                    "type":  "boolean",
+                                                                                                    "operation":  "true",
+                                                                                                    "singleValue":  true
+                                                                                                },
+                                                                                   "leftValue":  "={{$json.valid}}",
+                                                                                   "rightValue":  true
+                                                                               }
+                                                                           ]
+                                                        }
+                                     }
+                  },
+                  {
+                      "id":  "vf4",
+                      "name":  "Respond Challenge 200",
+                      "type":  "n8n-nodes-base.respondToWebhook",
+                      "typeVersion":  1,
+                      "position":  [
+                                       20,
+                                       160
+                                   ],
+                      "parameters":  {
+                                         "respondWith":  "text",
+                                         "responseBody":  "={{$json.challenge}}",
+                                         "options":  {
+                                                         "responseCode":  200,
+                                                         "responseHeaders":  {
+                                                                                 "entries":  [
+                                                                                                 {
+                                                                                                     "name":  "Content-Type",
+                                                                                                     "value":  "text/plain"
+                                                                                                 }
+                                                                                             ]
+                                                                             }
+                                                     }
+                                     }
+                  },
+                  {
+                      "id":  "vf5",
+                      "name":  "Respond Forbidden 403",
+                      "type":  "n8n-nodes-base.respondToWebhook",
+                      "typeVersion":  1,
+                      "position":  [
+                                       20,
+                                       360
+                                   ],
+                      "parameters":  {
+                                         "respondWith":  "text",
+                                         "responseBody":  "forbidden",
+                                         "options":  {
+                                                         "responseCode":  403,
+                                                         "responseHeaders":  {
+                                                                                 "entries":  [
+                                                                                                 {
+                                                                                                     "name":  "Content-Type",
+                                                                                                     "value":  "text/plain"
+                                                                                                 }
+                                                                                             ]
+                                                                             }
+                                                     }
+                                     }
+                  }
+              ],
+    "connections":  {
+                        "WhatsApp Verify Webhook (GET)":  {
+                                                              "main":  [
+                                                                           [
+                                                                               {
+                                                                                   "node":  "Parse Verify Query",
+                                                                                   "type":  "main",
+                                                                                   "index":  0
+                                                                               }
+                                                                           ]
+                                                                       ]
+                                                          },
+                        "Parse Verify Query":  {
+                                                   "main":  [
+                                                                [
+                                                                    {
+                                                                        "node":  "Is Valid Verify Request?",
+                                                                        "type":  "main",
+                                                                        "index":  0
+                                                                    }
+                                                                ]
+                                                            ]
+                                               },
+                        "Is Valid Verify Request?":  {
+                                                         "main":  [
+                                                                      [
+                                                                          {
+                                                                              "node":  "Respond Challenge 200",
+                                                                              "type":  "main",
+                                                                              "index":  0
+                                                                          }
+                                                                      ],
+                                                                      [
+                                                                          {
+                                                                              "node":  "Respond Forbidden 403",
+                                                                              "type":  "main",
+                                                                              "index":  0
+                                                                          }
+                                                                      ]
+                                                                  ]
+                                                     }
+                    },
+    "active":  false,
+    "settings":  {
+                     "executionOrder":  "v1"
+                 },
+    "pinData":  {
+
+                },
+    "meta":  {
+                 "templateCredsSetupCompleted":  true
+             }
+}

@@ -1,4 +1,5 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { LaraLayout } from '@/components/lara/LaraLayout';
 import { PageHeader } from '@/components/lara/PageHeader';
 import { FilterBar } from '@/components/lara/FilterBar';
@@ -6,22 +7,51 @@ import { StatusBadge } from '@/components/lara/StatusBadge';
 import { EtapaReguaBadge } from '@/components/lara/EtapaReguaBadge';
 import { EmptyState } from '@/components/lara/EmptyState';
 import { CardKPI } from '@/components/lara/CardKPI';
-import { mockConversas, formatCurrency, mockClientes, mockTitulos } from '@/data/lara-mock';
-import { MessageSquare, Phone, Clock, FileText, Banknote, User, Eye, ShieldBan, CheckCircle, AlertTriangle, ArrowUpDown } from 'lucide-react';
+import { formatCurrency } from '@/data/lara-mock';
+import { MessageSquare, Phone, Clock, FileText, Banknote, User, Eye, CheckCircle, AlertTriangle } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useNavigate } from 'react-router-dom';
+import { getClientes, getConversas, getTitulos } from '@/services/laraApi';
+import { useLaraFiliaisFilter } from '@/contexts/LaraFiliaisContext';
 
 export default function LaraConversas() {
   const [search, setSearch] = useState('');
-  const [selected, setSelected] = useState(mockConversas[0]?.id || '');
+  const [selected, setSelected] = useState('');
   const [filtroStatus, setFiltroStatus] = useState('todos');
   const [filtroOrigem, setFiltroOrigem] = useState('todos');
+  const { filiaisApiParam, selectedFiliaisKey } = useLaraFiliaisFilter();
 
   const navigate = useNavigate();
 
-  const filtered = mockConversas.filter(c => {
+  const { data: conversasData } = useQuery({
+    queryKey: ['lara-conversas', selectedFiliaisKey],
+    queryFn: () => getConversas({ filiais: filiaisApiParam }),
+    staleTime: 30_000,
+  });
+
+  const { data: clientesData } = useQuery({
+    queryKey: ['lara-clientes', selectedFiliaisKey],
+    queryFn: () => getClientes({ filiais: filiaisApiParam }),
+    staleTime: 60_000,
+  });
+
+  const { data: titulosData } = useQuery({
+    queryKey: ['lara-titulos', selectedFiliaisKey],
+    queryFn: () => getTitulos({ filiais: filiaisApiParam }),
+    staleTime: 60_000,
+  });
+
+  const conversas = conversasData ?? [];
+  const clientes = clientesData ?? [];
+  const titulos = titulosData ?? [];
+
+  useEffect(() => {
+    if (!selected && conversas[0]?.id) setSelected(conversas[0].id);
+  }, [selected, conversas]);
+
+  const filtered = conversas.filter(c => {
     const matchSearch = !search ||
       c.cliente.toLowerCase().includes(search.toLowerCase()) ||
       c.telefone.includes(search) ||
@@ -32,23 +62,22 @@ export default function LaraConversas() {
     return matchSearch && matchStatus && matchOrigem;
   });
 
-  const current = mockConversas.find(c => c.id === selected);
-  const currentCliente = current ? mockClientes.find(cl => cl.codcli === current.codcli) : undefined;
-  const currentTitulos = current ? mockTitulos.filter(t => t.codcli === current.codcli) : [];
+  const current = conversas.find(c => c.id === selected);
+  const currentCliente = current ? clientes.find(cl => cl.codcli === current.codcli) : undefined;
+  const currentTitulos = current ? titulos.filter(t => t.codcli === current.codcli) : [];
 
-  const totalConversas = mockConversas.length;
-  const conversasAtivas = mockConversas.filter(c => !c.encerrada).length;
-  const aguardandoResposta = mockConversas.filter(c => c.status === 'Aguardando resposta').length;
-  const escaladas = mockConversas.filter(c => c.status === 'Escalado para humano').length;
+  const totalConversas = conversas.length;
+  const conversasAtivas = conversas.filter(c => !c.encerrada).length;
+  const aguardandoResposta = conversas.filter(c => c.status === 'Aguardando resposta').length;
+  const escaladas = conversas.filter(c => c.status === 'Escalado para humano').length;
 
-  const statusList = [...new Set(mockConversas.map(c => c.status))];
-  const origemList = [...new Set(mockConversas.map(c => c.origem))];
+  const statusList = [...new Set(conversas.map(c => c.status))];
+  const origemList = [...new Set(conversas.map(c => c.origem))];
 
   return (
     <LaraLayout>
-      <PageHeader title="Conversas" subtitle="Acompanhamento e histórico de conversas via WhatsApp" />
+      <PageHeader title="Conversas" subtitle="Acompanhamento e historico de conversas via WhatsApp" />
 
-      {/* KPIs */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
         <CardKPI label="Total de Conversas" value={totalConversas} icon={<MessageSquare className="h-4 w-4" />} />
         <CardKPI label="Conversas Ativas" value={conversasAtivas} icon={<Phone className="h-4 w-4" />} />
@@ -57,7 +86,6 @@ export default function LaraConversas() {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-[400px_1fr] gap-4 h-[calc(100vh-280px)]">
-        {/* Painel esquerdo — lista de conversas */}
         <div className="flex flex-col border rounded-lg bg-card overflow-hidden">
           <div className="p-3 border-b space-y-2">
             <FilterBar searchValue={search} onSearchChange={setSearch} searchPlaceholder="Buscar cliente, telefone, codcli, wa_id..." />
@@ -114,13 +142,11 @@ export default function LaraConversas() {
           </ScrollArea>
         </div>
 
-        {/* Painel direito — detalhe da conversa */}
         <div className="border rounded-lg bg-card overflow-hidden flex flex-col">
           {!current ? (
-            <EmptyState title="Selecione uma conversa" description="Clique em uma conversa na lista para visualizar o histórico." />
+            <EmptyState title="Selecione uma conversa" description="Clique em uma conversa na lista para visualizar o historico." />
           ) : (
             <>
-              {/* Cabeçalho da conversa */}
               <div className="p-4 border-b bg-muted/20">
                 <div className="flex items-start justify-between">
                   <div>
@@ -132,7 +158,7 @@ export default function LaraConversas() {
                       <StatusBadge status={current.status} />
                       <EtapaReguaBadge etapa={current.etapa} />
                       <Badge variant="outline" className="text-[10px]">{current.origem}</Badge>
-                      <span className="text-[10px] text-muted-foreground">Responsável: {current.responsavel}</span>
+                      <span className="text-[10px] text-muted-foreground">Responsavel: {current.responsavel}</span>
                     </div>
                   </div>
                   <div className="flex gap-1.5">
@@ -141,23 +167,20 @@ export default function LaraConversas() {
                     </Button>
                   </div>
                 </div>
-                {/* Resumo financeiro inline */}
                 {currentCliente && (
                   <div className="flex gap-4 mt-3 text-xs text-muted-foreground">
                     <span>Total em aberto: <strong className="text-foreground">{formatCurrency(currentCliente.total_aberto)}</strong></span>
-                    <span>Títulos: <strong className="text-foreground">{currentCliente.qtd_titulos}</strong></span>
+                    <span>Titulos: <strong className="text-foreground">{currentCliente.qtd_titulos}</strong></span>
                     <span>Risco: <strong className="text-foreground capitalize">{currentCliente.risco}</strong></span>
                   </div>
                 )}
               </div>
 
-              {/* Timeline de mensagens */}
               <ScrollArea className="flex-1 p-4">
                 <div className="space-y-3 max-w-2xl mx-auto">
-                  {/* Indicador de início */}
                   <div className="flex justify-center">
                     <Badge variant="secondary" className="text-[10px]">
-                      Início da conversa · {current.inicio}
+                      Inicio da conversa · {current.inicio}
                     </Badge>
                   </div>
 
@@ -202,10 +225,9 @@ export default function LaraConversas() {
                 </div>
               </ScrollArea>
 
-              {/* Títulos relacionados */}
               {currentTitulos.length > 0 && (
                 <div className="border-t p-3 bg-muted/10">
-                  <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-2">Títulos Relacionados</p>
+                  <p className="text-[10px] text-muted-foreground uppercase tracking-wide mb-2">Titulos Relacionados</p>
                   <div className="flex gap-2 overflow-x-auto">
                     {currentTitulos.map(t => (
                       <div key={t.id} className="shrink-0 rounded border bg-card px-3 py-2 text-xs">
@@ -224,3 +246,4 @@ export default function LaraConversas() {
     </LaraLayout>
   );
 }
+

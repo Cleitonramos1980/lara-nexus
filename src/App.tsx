@@ -17,34 +17,37 @@ import LaraOptout from "./pages/lara/LaraOptout.tsx";
 import LaraLogs from "./pages/lara/LaraLogs.tsx";
 import LaraConfiguracoes from "./pages/lara/LaraConfiguracoes.tsx";
 import LaraMonitoramento from "./pages/lara/LaraMonitoramento.tsx";
+import { LaraFiliaisProvider } from "./contexts/LaraFiliaisContext.tsx";
 
 const queryClient = new QueryClient();
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/" element={<Navigate to="/lara/dashboard" replace />} />
-          <Route path="/lara/dashboard" element={<LaraDashboard />} />
-          <Route path="/lara/atendimentos" element={<LaraAtendimentos />} />
-          <Route path="/lara/conversas" element={<LaraConversas />} />
-          <Route path="/lara/clientes" element={<LaraClientes />} />
-          <Route path="/lara/clientes/:id" element={<LaraClienteDetalhe />} />
-          <Route path="/lara/titulos" element={<LaraTitulos />} />
-          <Route path="/lara/regua-ativa" element={<LaraReguaAtiva />} />
-          <Route path="/lara/regua-config" element={<LaraReguaConfig />} />
-          <Route path="/lara/cases" element={<LaraCases />} />
-          <Route path="/lara/optout" element={<LaraOptout />} />
-          <Route path="/lara/logs" element={<LaraLogs />} />
-          <Route path="/lara/configuracoes" element={<LaraConfiguracoes />} />
-          <Route path="/lara/monitoramento" element={<LaraMonitoramento />} />
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
-    </TooltipProvider>
+    <LaraFiliaisProvider>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <Routes>
+            <Route path="/" element={<Navigate to="/lara/dashboard" replace />} />
+            <Route path="/lara/dashboard" element={<LaraDashboard />} />
+            <Route path="/lara/atendimentos" element={<LaraAtendimentos />} />
+            <Route path="/lara/conversas" element={<LaraConversas />} />
+            <Route path="/lara/clientes" element={<LaraClientes />} />
+            <Route path="/lara/clientes/:id" element={<LaraClienteDetalhe />} />
+            <Route path="/lara/titulos" element={<LaraTitulos />} />
+            <Route path="/lara/regua-ativa" element={<LaraReguaAtiva />} />
+            <Route path="/lara/regua-config" element={<LaraReguaConfig />} />
+            <Route path="/lara/cases" element={<LaraCases />} />
+            <Route path="/lara/optout" element={<LaraOptout />} />
+            <Route path="/lara/logs" element={<LaraLogs />} />
+            <Route path="/lara/configuracoes" element={<LaraConfiguracoes />} />
+            <Route path="/lara/monitoramento" element={<LaraMonitoramento />} />
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </BrowserRouter>
+      </TooltipProvider>
+    </LaraFiliaisProvider>
   </QueryClientProvider>
 );
 
