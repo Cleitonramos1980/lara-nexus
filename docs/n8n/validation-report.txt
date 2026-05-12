@@ -1,0 +1,37 @@
+﻿Validation date: 2026-04-10 06:06:37
+
+FILE: n8n-cloud-2.13.3-lara-whatsapp-inbound.json
+WORKFLOW: Lara WhatsApp Inbound (n8n Cloud 2.13.3)
+ - WhatsApp Inbound Webhook -> Normalize Inbound Message = True
+ - Normalize Inbound Message -> Call Lara Inbound = True
+ - Normalize Inbound Message -> Merge Lara + Context = True
+ - Call Lara Inbound -> Merge Lara + Context = True
+ - Merge Lara + Context -> Build Outbound WhatsApp Text = True
+ - Build Outbound WhatsApp Text -> Send WhatsApp Text = True
+
+FILE: n8n-cloud-2.13.3-lara-whatsapp-status.json
+WORKFLOW: Lara WhatsApp Status (n8n Cloud 2.13.3)
+ - WhatsApp Status Webhook -> Normalize Status Event = True
+ - Normalize Status Event -> Call Lara Status = True
+
+FILE: n8n-cloud-2.13.3-lara-whatsapp-verify.json
+WORKFLOW: Lara WhatsApp Verify (Meta GET Challenge) - n8n Cloud 2.13.3
+ - WhatsApp Verify Webhook (GET) -> Parse Verify Query = True
+ - Parse Verify Query -> Is Valid Verify Request? = True
+ - Is Valid Verify Request? -> Respond Challenge 200 = True
+ - Is Valid Verify Request? -> Respond Forbidden 403 = True
+
+FILE: n8n-cloud-2.13.3-lara-whatsapp-all-3-workflows.json
+WORKFLOW: Lara WhatsApp ALL-IN-ONE (Verify + Inbound + Status) - n8n Cloud 2.13.3
+ - WhatsApp Verify Webhook (GET) -> Parse Verify Query = True
+ - Parse Verify Query -> Is Valid Verify Request? = True
+ - Is Valid Verify Request? -> Respond Challenge 200 = True
+ - Is Valid Verify Request? -> Respond Forbidden 403 = True
+ - WhatsApp Inbound Webhook -> Normalize Inbound Message = True
+ - Normalize Inbound Message -> Call Lara Inbound = True
+ - Normalize Inbound Message -> Merge Lara + Context = True
+ - Call Lara Inbound -> Merge Lara + Context = True
+ - Merge Lara + Context -> Build Outbound WhatsApp Text = True
+ - Build Outbound WhatsApp Text -> Send WhatsApp Text = True
+ - WhatsApp Status Webhook -> Normalize Status Event = True
+ - Normalize Status Event -> Call Lara Status = True

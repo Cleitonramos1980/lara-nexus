@@ -1,0 +1,23 @@
+{
+  "success": true,
+  "payment_confirmed": true,
+  "title_found": true,
+  "multiple_titles_found": false,
+  "title_already_settled": false,
+  "title_cancelled": false,
+  "amount_match": true,
+  "idempotent_replay": false,
+  "settlement_executed": true,
+  "codbanco_used": 1007,
+  "process_status": "settled",
+  "process_code": "OK_SETTLEMENT_DONE",
+  "message": "Titulo baixado pela rotina homologada apos confirmacao positiva da Lara.",
+  "technical_details": {
+    "event_id": "payment-event-20260425-0001",
+    "idempotency_key": "lara:payment:payment-event-20260425-0001",
+    "oracle_routine": "to-be-homologated",
+    "pcprest_reference": "neutral-title-reference",
+    "settlement_audit_id": "audit-0001",
+    "warnings": []
+  }
+}

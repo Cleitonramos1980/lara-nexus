@@ -1,0 +1,109 @@
+﻿{
+    "name":  "Lara WhatsApp Status (n8n Cloud 2.13.3)",
+    "nodes":  [
+                  {
+                      "id":  "st1",
+                      "name":  "WhatsApp Status Webhook",
+                      "type":  "n8n-nodes-base.webhook",
+                      "typeVersion":  1,
+                      "position":  [
+                                       -720,
+                                       260
+                                   ],
+                      "webhookId":  "lara-whatsapp-status-v2133",
+                      "parameters":  {
+                                         "path":  "lara-whatsapp-status",
+                                         "httpMethod":  "POST",
+                                         "responseMode":  "onReceived",
+                                         "options":  {
+
+                                                     }
+                                     }
+                  },
+                  {
+                      "id":  "st2",
+                      "name":  "Normalize Status Event",
+                      "type":  "n8n-nodes-base.code",
+                      "typeVersion":  2,
+                      "position":  [
+                                       -460,
+                                       260
+                                   ],
+                      "parameters":  {
+                                         "mode":  "runOnceForAllItems",
+                                         "jsCode":  "const input = $input.first()?.json || {};\nconst out = [];\nconst entries = Array.isArray(input.entry) ? input.entry : [];\n\nfor (const entry of entries) {\n  const changes = Array.isArray(entry?.changes) ? entry.changes : [];\n  for (const change of changes) {\n    const value = change?.value || {};\n    const statuses = Array.isArray(value.statuses) ? value.statuses : [];\n\n    for (const st of statuses) {\n      const messageId = String(st?.id || \u0027\u0027).trim();\n      const waId = String(st?.recipient_id || \u0027\u0027).trim();\n      const status = String(st?.status || \u0027\u0027).trim();\n      const timestamp = st?.timestamp ? new Date(Number(st.timestamp) * 1000).toISOString() : new Date().toISOString();\n      if (!messageId || !status) continue;\n\n      out.push({\n        json: {\n          event_id: messageId + \u0027:\u0027 + status + \u0027:\u0027 + timestamp,\n          message_id: messageId,\n          wa_id: waId,\n          status,\n          timestamp,\n          payload: {\n            entry_id: entry?.id,\n            change_field: change?.field,\n            raw_status: st,\n          },\n        },\n      });\n    }\n  }\n}\n\nreturn out;"
+                                     }
+                  },
+                  {
+                      "id":  "st3",
+                      "name":  "Call Lara Status",
+                      "type":  "n8n-nodes-base.httpRequest",
+                      "typeVersion":  4.2,
+                      "position":  [
+                                       -180,
+                                       260
+                                   ],
+                      "parameters":  {
+                                         "method":  "POST",
+                                         "url":  "={{$env.LARA_BASE_URL}}/api/lara/webhooks/whatsapp-status",
+                                         "sendHeaders":  true,
+                                         "headerParameters":  {
+                                                                  "parameters":  [
+                                                                                     {
+                                                                                         "name":  "x-lara-api-key",
+                                                                                         "value":  "={{$env.LARA_API_KEY}}"
+                                                                                     },
+                                                                                     {
+                                                                                         "name":  "x-lara-tenant-id",
+                                                                                         "value":  "={{$env.LARA_TENANT_ID || \"default\"}}"
+                                                                                     },
+                                                                                     {
+                                                                                         "name":  "x-request-id",
+                                                                                         "value":  "={{$json.event_id}}"
+                                                                                     }
+                                                                                 ]
+                                                              },
+                                         "sendBody":  true,
+                                         "specifyBody":  "json",
+                                         "jsonBody":  "={{ ({ event_id: $json.event_id, message_id: $json.message_id, wa_id: $json.wa_id, status: $json.status, timestamp: $json.timestamp, payload: $json.payload || {} }) }}",
+                                         "options":  {
+
+                                                     }
+                                     }
+                  }
+              ],
+    "connections":  {
+                        "WhatsApp Status Webhook":  {
+                                                        "main":  [
+                                                                     [
+                                                                         {
+                                                                             "node":  "Normalize Status Event",
+                                                                             "type":  "main",
+                                                                             "index":  0
+                                                                         }
+                                                                     ]
+                                                                 ]
+                                                    },
+                        "Normalize Status Event":  {
+                                                       "main":  [
+                                                                    [
+                                                                        {
+                                                                            "node":  "Call Lara Status",
+                                                                            "type":  "main",
+                                                                            "index":  0
+                                                                        }
+                                                                    ]
+                                                                ]
+                                                   }
+                    },
+    "active":  false,
+    "settings":  {
+                     "executionOrder":  "v1"
+                 },
+    "pinData":  {
+
+                },
+    "meta":  {
+                 "templateCredsSetupCompleted":  true
+             }
+}

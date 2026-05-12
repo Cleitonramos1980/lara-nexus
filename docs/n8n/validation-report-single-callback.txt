@@ -1,0 +1,13 @@
+Validation date: 2026-04-10 13:22:40
+
+FILE: n8n-cloud-2.13.3-lara-whatsapp-single-callback.json
+WORKFLOW: Lara WhatsApp Single Callback (Verify GET + Callback POST) - n8n Cloud 2.13.3
+ - GET webhook path lara-whatsapp-inbound = True
+ - POST webhook count total = 1
+ - POST webhook count on lara-whatsapp-inbound = 1
+ - POST webhook count on other paths = 0
+ - Calls Lara inbound endpoint = True
+ - Calls Lara status endpoint = True
+ - Build node has no sendActions business filter = True
+ - Build node has no linha_digitavel concatenation = True
+ - Build node has no pix_copia_cola concatenation = True

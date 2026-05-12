@@ -1,0 +1,84 @@
+Validation date: 2026-04-10T18:39:28.951Z
+
+FILE: n8n-cloud-2.13.3-lara-whatsapp-uazapi-single-webhook.json
+WORKFLOW: Lara WhatsApp Uazapi Single Webhook (n8n Cloud 2.13.3)
+ - JSON parseable = true
+ - Webhook POST count = 1
+ - Single POST webhook path lara-uazapi-callback = true
+ - Uses Uazapi send endpoint (/send/text) = true
+ - Uses Lara inbound endpoint = true
+ - Uses Lara status endpoint = true
+ - Does NOT use graph.facebook.com = true
+ - Normalize node exists = true
+ - Synthetic inbound normalization = true
+ - Synthetic status normalization = true
+
+Synthetic inbound output sample:
+{
+  "json": {
+    "event_type": "inbound",
+    "event_id": "msg-1",
+    "wa_id": "5592988887777",
+    "telefone": "5592988887777",
+    "message_text": "quero boleto",
+    "tenant_id": "default",
+    "jurisdicao": "BR",
+    "canal": "WHATSAPP",
+    "received_at": "2026-04-10T18:39:28.000Z",
+    "payload": {
+      "provider": "uazapi",
+      "event_hint": "messages",
+      "raw_message": {
+        "id": "msg-1",
+        "from": "5592988887777@c.us",
+        "text": "quero boleto",
+        "timestamp": 1775846368
+      },
+      "raw_payload": {
+        "event": "messages",
+        "messages": [
+          {
+            "id": "msg-1",
+            "from": "5592988887777@c.us",
+            "text": "quero boleto",
+            "timestamp": 1775846368
+          }
+        ]
+      }
+    }
+  }
+}
+
+Synthetic status output sample:
+{
+  "json": {
+    "event_type": "status",
+    "event_id": "msg-1:delivered:2026-04-10T18:39:28.000Z",
+    "message_id": "msg-1",
+    "wa_id": "5592988887777",
+    "status": "delivered",
+    "timestamp": "2026-04-10T18:39:28.000Z",
+    "tenant_id": "default",
+    "payload": {
+      "provider": "uazapi",
+      "event_hint": "messages_update",
+      "raw_status": {
+        "id": "msg-1",
+        "status": "delivered",
+        "to": "5592988887777@c.us",
+        "timestamp": 1775846368
+      },
+      "raw_payload": {
+        "event": "messages_update",
+        "messages_update": [
+          {
+            "id": "msg-1",
+            "status": "delivered",
+            "to": "5592988887777@c.us",
+            "timestamp": 1775846368
+          }
+        ]
+      }
+    }
+  }
+}

@@ -1,0 +1,211 @@
+﻿{
+    "name":  "Lara WhatsApp Inbound (n8n Cloud 2.13.3)",
+    "nodes":  [
+                  {
+                      "id":  "in1",
+                      "name":  "WhatsApp Inbound Webhook",
+                      "type":  "n8n-nodes-base.webhook",
+                      "typeVersion":  1,
+                      "position":  [
+                                       -1180,
+                                       280
+                                   ],
+                      "webhookId":  "lara-whatsapp-inbound-v2133",
+                      "parameters":  {
+                                         "path":  "lara-whatsapp-inbound",
+                                         "httpMethod":  "POST",
+                                         "responseMode":  "onReceived",
+                                         "options":  {
+
+                                                     }
+                                     }
+                  },
+                  {
+                      "id":  "in2",
+                      "name":  "Normalize Inbound Message",
+                      "type":  "n8n-nodes-base.code",
+                      "typeVersion":  2,
+                      "position":  [
+                                       -930,
+                                       280
+                                   ],
+                      "parameters":  {
+                                         "mode":  "runOnceForAllItems",
+                                         "jsCode":  "function messageTextFromMessage(msg) {\n  if (!msg || typeof msg !== \u0027object\u0027) return \u0027\u0027;\n  const type = msg.type || \u0027\u0027;\n\n  if (type === \u0027text\u0027) return String(msg.text?.body || \u0027\u0027).trim();\n  if (type === \u0027button\u0027) return String(msg.button?.text || \u0027\u0027).trim();\n  if (type === \u0027interactive\u0027) {\n    const replyId = msg.interactive?.button_reply?.id || msg.interactive?.list_reply?.id || \u0027\u0027;\n    const replyTitle = msg.interactive?.button_reply?.title || msg.interactive?.list_reply?.title || \u0027\u0027;\n    return String(replyTitle || replyId || \u0027\u0027).trim();\n  }\n  if (type === \u0027image\u0027) return \u0027[imagem]\u0027;\n  if (type === \u0027document\u0027) return \u0027[documento]\u0027;\n  if (type === \u0027audio\u0027) return \u0027[audio]\u0027;\n  if (type === \u0027video\u0027) return \u0027[video]\u0027;\n\n  return String(msg.caption || \u0027\u0027).trim();\n}\n\nconst input = $input.first()?.json || {};\nconst out = [];\nconst entries = Array.isArray(input.entry) ? input.entry : [];\n\nfor (const entry of entries) {\n  const changes = Array.isArray(entry?.changes) ? entry.changes : [];\n  for (const change of changes) {\n    const value = change?.value || {};\n    const messages = Array.isArray(value.messages) ? value.messages : [];\n\n    for (const msg of messages) {\n      const waId = String(msg?.from || \u0027\u0027).trim();\n      const messageText = messageTextFromMessage(msg);\n      if (!waId || !messageText) continue;\n\n      const tsRaw = String(msg?.timestamp || \u0027\u0027).trim();\n      const tsNumber = Number(tsRaw);\n      const receivedAt = Number.isFinite(tsNumber) \u0026\u0026 tsNumber \u003e 0\n        ? new Date(tsNumber * 1000).toISOString()\n        : new Date().toISOString();\n\n      out.push({\n        json: {\n          event_id: String(msg?.id || (waId + \u0027-\u0027 + Date.now())).trim(),\n          wa_id: waId,\n          telefone: waId,\n          message_text: messageText,\n          tenant_id: String(input.tenant_id || \u0027default\u0027).trim() || \u0027default\u0027,\n          jurisdicao: \u0027BR\u0027,\n          canal: \u0027WHATSAPP\u0027,\n          received_at: receivedAt,\n          phone_number_id: String(value?.metadata?.phone_number_id || \u0027\u0027).trim(),\n          payload: {\n            entry_id: entry?.id,\n            change_field: change?.field,\n            message_type: msg?.type,\n            raw_message: msg,\n          },\n        },\n      });\n    }\n  }\n}\n\nreturn out;"
+                                     }
+                  },
+                  {
+                      "id":  "in3",
+                      "name":  "Call Lara Inbound",
+                      "type":  "n8n-nodes-base.httpRequest",
+                      "typeVersion":  4.2,
+                      "position":  [
+                                       -690,
+                                       180
+                                   ],
+                      "parameters":  {
+                                         "method":  "POST",
+                                         "url":  "={{$env.LARA_BASE_URL}}/api/lara/webhooks/whatsapp-inbound",
+                                         "sendHeaders":  true,
+                                         "headerParameters":  {
+                                                                  "parameters":  [
+                                                                                     {
+                                                                                         "name":  "x-lara-api-key",
+                                                                                         "value":  "={{$env.LARA_API_KEY}}"
+                                                                                     },
+                                                                                     {
+                                                                                         "name":  "x-lara-tenant-id",
+                                                                                         "value":  "={{$json.tenant_id || $env.LARA_TENANT_ID || \"default\"}}"
+                                                                                     },
+                                                                                     {
+                                                                                         "name":  "x-request-id",
+                                                                                         "value":  "={{$json.event_id}}"
+                                                                                     }
+                                                                                 ]
+                                                              },
+                                         "sendBody":  true,
+                                         "specifyBody":  "json",
+                                         "jsonBody":  "={{ ({ event_id: $json.event_id, wa_id: $json.wa_id, telefone: $json.telefone, message_text: $json.message_text, tenant_id: $json.tenant_id || $env.LARA_TENANT_ID || \"default\", jurisdicao: $json.jurisdicao || \"BR\", canal: $json.canal || \"WHATSAPP\", received_at: $json.received_at, payload: Object.assign({}, $json.payload || {}, { phone_number_id: $json.phone_number_id || $env.WHATSAPP_PHONE_NUMBER_ID || \"\" }) }) }}",
+                                         "options":  {
+
+                                                     }
+                                     }
+                  },
+                  {
+                      "id":  "in4",
+                      "name":  "Merge Lara + Context",
+                      "type":  "n8n-nodes-base.merge",
+                      "typeVersion":  3,
+                      "position":  [
+                                       -460,
+                                       280
+                                   ],
+                      "parameters":  {
+                                         "mode":  "combine",
+                                         "combineBy":  "combineByPosition",
+                                         "options":  {
+
+                                                     }
+                                     }
+                  },
+                  {
+                      "id":  "in5",
+                      "name":  "Build Outbound WhatsApp Text",
+                      "type":  "n8n-nodes-base.code",
+                      "typeVersion":  2,
+                      "position":  [
+                                       -220,
+                                       280
+                                   ],
+                      "parameters":  {
+                                         "mode":  "runOnceForAllItems",
+                                         "jsCode":  "const sendActions = new Set([\n  \u0027enviar_boleto\u0027,\n  \u0027enviar_pix\u0027,\n  \u0027registrar_promessa\u0027,\n  \u0027negociar\u0027,\n  \u0027resposta_padrao\u0027,\n  \u0027escalar_humano\u0027,\n  \u0027optout_aplicado\u0027,\n  \u0027pausar_contato\u0027,\n]);\n\nconst output = [];\nfor (const item of $input.all()) {\n  const d = item.json || {};\n  if (d.status !== \u0027ok\u0027) continue;\n  if (!sendActions.has(String(d.acao || \u0027\u0027))) continue;\n  if (!d.mensagem) continue;\n\n  let text = String(d.mensagem);\n  if (d.acao === \u0027enviar_boleto\u0027 \u0026\u0026 d.payload_whatsapp) {\n    const linha = d.payload_whatsapp.linha_digitavel ? (\u0027\\nLinha digitavel: \u0027 + d.payload_whatsapp.linha_digitavel) : \u0027\u0027;\n    const url = d.payload_whatsapp.url_boleto ? (\u0027\\nURL boleto: \u0027 + d.payload_whatsapp.url_boleto) : \u0027\u0027;\n    text = text + linha + url;\n  }\n  if (d.acao === \u0027enviar_pix\u0027 \u0026\u0026 d.payload_whatsapp?.pix_copia_cola) {\n    text = text + \u0027\\n\\nPIX copia e cola:\\n\u0027 + d.payload_whatsapp.pix_copia_cola;\n  }\n\n  output.push({\n    json: {\n      to: String(d.wa_id || \u0027\u0027).trim(),\n      phone_number_id: String(d.phone_number_id || \u0027\u0027).trim(),\n      text,\n      lara_acao: d.acao,\n      lara_status: d.status,\n      codcli: d.codcli || \u0027\u0027,\n      cliente: d.cliente || \u0027\u0027,\n    },\n  });\n}\n\nreturn output;"
+                                     }
+                  },
+                  {
+                      "id":  "in6",
+                      "name":  "Send WhatsApp Text",
+                      "type":  "n8n-nodes-base.httpRequest",
+                      "typeVersion":  4.2,
+                      "position":  [
+                                       40,
+                                       280
+                                   ],
+                      "parameters":  {
+                                         "method":  "POST",
+                                         "url":  "={{\"https://graph.facebook.com/v22.0/\" + ($json.phone_number_id || $env.WHATSAPP_PHONE_NUMBER_ID) + \"/messages\"}}",
+                                         "sendHeaders":  true,
+                                         "headerParameters":  {
+                                                                  "parameters":  [
+                                                                                     {
+                                                                                         "name":  "Authorization",
+                                                                                         "value":  "={{\"Bearer \" + $env.WHATSAPP_TOKEN}}"
+                                                                                     },
+                                                                                     {
+                                                                                         "name":  "Content-Type",
+                                                                                         "value":  "application/json"
+                                                                                     }
+                                                                                 ]
+                                                              },
+                                         "sendBody":  true,
+                                         "specifyBody":  "json",
+                                         "jsonBody":  "={{ ({ messaging_product: \"whatsapp\", recipient_type: \"individual\", to: $json.to, type: \"text\", text: { preview_url: false, body: $json.text } }) }}",
+                                         "options":  {
+
+                                                     }
+                                     }
+                  }
+              ],
+    "connections":  {
+                        "WhatsApp Inbound Webhook":  {
+                                                         "main":  [
+                                                                      [
+                                                                          {
+                                                                              "node":  "Normalize Inbound Message",
+                                                                              "type":  "main",
+                                                                              "index":  0
+                                                                          }
+                                                                      ]
+                                                                  ]
+                                                     },
+                        "Normalize Inbound Message":  {
+                                                          "main":  [
+                                                                       [
+                                                                           {
+                                                                               "node":  "Call Lara Inbound",
+                                                                               "type":  "main",
+                                                                               "index":  0
+                                                                           },
+                                                                           {
+                                                                               "node":  "Merge Lara + Context",
+                                                                               "type":  "main",
+                                                                               "index":  0
+                                                                           }
+                                                                       ]
+                                                                   ]
+                                                      },
+                        "Call Lara Inbound":  {
+                                                  "main":  [
+                                                               [
+                                                                   {
+                                                                       "node":  "Merge Lara + Context",
+                                                                       "type":  "main",
+                                                                       "index":  1
+                                                                   }
+                                                               ]
+                                                           ]
+                                              },
+                        "Merge Lara + Context":  {
+                                                     "main":  [
+                                                                  [
+                                                                      {
+                                                                          "node":  "Build Outbound WhatsApp Text",
+                                                                          "type":  "main",
+                                                                          "index":  0
+                                                                      }
+                                                                  ]
+                                                              ]
+                                                 },
+                        "Build Outbound WhatsApp Text":  {
+                                                             "main":  [
+                                                                          [
+                                                                              {
+                                                                                  "node":  "Send WhatsApp Text",
+                                                                                  "type":  "main",
+                                                                                  "index":  0
+                                                                              }
+                                                                          ]
+                                                                      ]
+                                                         }
+                    },
+    "active":  false,
+    "settings":  {
+                     "executionOrder":  "v1"
+                 },
+    "pinData":  {
+
+                },
+    "meta":  {
+                 "templateCredsSetupCompleted":  true
+             }
+}

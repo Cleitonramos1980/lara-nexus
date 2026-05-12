@@ -1,0 +1,37 @@
+{
+  "event_id": "payment-event-20260425-0001",
+  "idempotency_key": "lara:payment:payment-event-20260425-0001",
+  "payment_confirmed": true,
+  "confirmed_by": "lara",
+  "confirmation_source": "bank_webhook_or_validated_evidence",
+  "confirmed_at": "2026-04-25T12:00:00.000Z",
+  "payment_method": "PIX",
+  "provider": "provider-to-be-defined",
+  "txid": "optional-txid",
+  "end_to_end_id": "optional-bank-end-to-end-id",
+  "amount_paid": 123.45,
+  "currency": "BRL",
+  "codbanco": 1007,
+  "candidate_title": {
+    "codcli": 123,
+    "numprest": "neutral-title-reference",
+    "codcob": "neutral-collection-code",
+    "document_number": "neutral-document-number",
+    "nosso_numero": "optional-bank-reference",
+    "expected_amount": 123.45,
+    "due_date": "2026-04-20"
+  },
+  "evidence": {
+    "type": "bank_webhook",
+    "evidence_id": "evidence-0001",
+    "evidence_hash": "sha256:pending-real-hash",
+    "raw_payload_ref": "storage-or-log-reference"
+  },
+  "audit": {
+    "tenant_id": "default",
+    "wa_id": "5599999999999",
+    "correlation_id": "correlation-id-from-request",
+    "requested_by": "n8n",
+    "origin": "lara-payment-confirmation"
+  }
+}

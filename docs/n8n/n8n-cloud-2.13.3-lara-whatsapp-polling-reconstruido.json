@@ -1,0 +1,287 @@
+{
+  "name": "Lara WhatsApp Polling Reconstruido (n8n Cloud 2.13.3)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "lara-whatsapp-lara-polling",
+        "responseMode": "onReceived",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "1",
+      "name": "Recebe mensagem do WhatsApp para enviar Para o Sistema Lara",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -980,
+        0
+      ],
+      "notesInFlow": true,
+      "notes": "Porta de entrada do WhatsApp. Preserva payload bruto, event_id, telefone, wa_id e timestamp."
+    },
+    {
+      "parameters": {
+        "jsCode": "function textFromMessage(msg) {\n  if (!msg || typeof msg !== 'object') return '';\n  if (msg.text?.body) return String(msg.text.body).trim();\n  if (msg.text) return String(msg.text).trim();\n  if (msg.body) return String(msg.body).trim();\n  if (msg.message) return String(msg.message).trim();\n  if (msg.caption) return String(msg.caption).trim();\n  return '';\n}\n\nconst input = $input.first()?.json || {};\nconst body = input.body && typeof input.body === 'object' ? input.body : input;\nconst message = Array.isArray(body.messages) ? body.messages[0] : body.message || body;\nconst waIdRaw = message.from || body.wa_id || body.telefone || body.phone || body.from || '';\nconst waId = String(waIdRaw).replace(/@c\\.us$/, '').trim();\nconst messageText = textFromMessage(message) || textFromMessage(body);\nconst timestampRaw = Number(message.timestamp || body.timestamp || 0);\nconst receivedAt = Number.isFinite(timestampRaw) && timestampRaw > 0\n  ? new Date(timestampRaw * 1000).toISOString()\n  : new Date().toISOString();\nconst eventId = String(message.id || body.event_id || body.id || `${waId}-${Date.now()}`).trim();\n\nreturn [{\n  json: {\n    event_id: eventId,\n    wa_id: waId,\n    telefone: waId,\n    message_text: messageText,\n    tenant_id: String(body.tenant_id || $env.LARA_TENANT_ID || 'default'),\n    jurisdicao: 'BR',\n    canal: 'WHATSAPP',\n    received_at: receivedAt,\n    payload: {\n      provider: body.provider || 'whatsapp',\n      raw_payload: body,\n      raw_message: message\n    }\n  }\n}];"
+      },
+      "id": "2",
+      "name": "Normaliza mensagem WhatsApp",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -720,
+        0
+      ],
+      "notesInFlow": true,
+      "notes": "Converte payload do provedor para contrato de entrada da Lara."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.LARA_BASE_URL}}/api/lara/webhooks/whatsapp-inbound",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-lara-api-key",
+              "value": "={{$env.LARA_API_KEY || \"\"}}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ ({ event_id: $json.event_id, wa_id: $json.wa_id, telefone: $json.telefone, message_text: $json.message_text, tenant_id: $json.tenant_id, jurisdicao: $json.jurisdicao, canal: $json.canal, received_at: $json.received_at, payload: $json.payload }) }}"
+      },
+      "id": "3",
+      "name": "Envia mensagens para o sistema Lara",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -460,
+        0
+      ],
+      "notesInFlow": true,
+      "notes": "HTTP Request POST para o Sistema Lara. Este e o ponto principal de integracao."
+    },
+    {
+      "parameters": {
+        "amount": 2,
+        "unit": "seconds"
+      },
+      "id": "4",
+      "name": "Aguardar Resposta do Sistema Lara",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -200,
+        0
+      ],
+      "notesInFlow": true,
+      "notes": "Espera curta antes da consulta da resposta. Em producao pode evoluir para polling com limite de tentativas."
+    },
+    {
+      "parameters": {
+        "method": "GET",
+        "url": "={{$env.LARA_BASE_URL + \"/api/lara/conversas/\" + encodeURIComponent($node[\"Normaliza mensagem WhatsApp\"].json.wa_id)}}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-lara-api-key",
+              "value": "={{$env.LARA_API_KEY || \"\"}}"
+            }
+          ]
+        }
+      },
+      "id": "5",
+      "name": "Buscar mensagem no sistema Lara",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        60,
+        0
+      ],
+      "notesInFlow": true,
+      "notes": "Consulta a conversa no backend Lara para buscar a resposta final gerada."
+    },
+    {
+      "parameters": {
+        "jsCode": "const conversa = $input.first()?.json || {};\nconst mensagens = Array.isArray(conversa.mensagens) ? conversa.mensagens : [];\nconst outbound = [...mensagens].reverse().find((msg) => {\n  const direction = String(msg.direction || msg.direcao || '').toUpperCase();\n  return direction === 'OUTBOUND' || String(msg.tipo || '').toLowerCase() !== 'inbound';\n});\nconst text = String(outbound?.texto || outbound?.message_text || outbound?.mensagem || conversa.mensagem || '').trim();\nconst waId = String(conversa.wa_id || $node['Normaliza mensagem WhatsApp'].json.wa_id || '').trim();\n\nreturn [{\n  json: {\n    has_response: Boolean(text && waId),\n    to: waId,\n    text,\n    event_id: $node['Normaliza mensagem WhatsApp'].json.event_id,\n    correlation_id: conversa.correlation_id || ''\n  }\n}];"
+      },
+      "id": "6",
+      "name": "Receber mensagem do Sistema Lara para enviar no WhatsApp",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        320,
+        0
+      ],
+      "notesInFlow": true,
+      "notes": "Prepara a resposta final da Lara para o canal WhatsApp."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{$json.has_response}}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "7",
+      "name": "Resposta encontrada?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        580,
+        0
+      ],
+      "notesInFlow": true,
+      "notes": "Bloqueia envio de mensagem vazia quando a Lara ainda nao tem resposta consultavel."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{\"https://graph.facebook.com/v22.0/\" + $env.WHATSAPP_PHONE_NUMBER_ID + \"/messages\"}}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{\"Bearer \" + $env.WHATSAPP_TOKEN}}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ ({ messaging_product: \"whatsapp\", recipient_type: \"individual\", to: $json.to, type: \"text\", text: { preview_url: false, body: $json.text } }) }}"
+      },
+      "id": "8",
+      "name": "Enviar resposta ao WhatsApp",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        860,
+        -120
+      ],
+      "notesInFlow": true,
+      "notes": "Envia ao cliente a resposta final preparada a partir da mensagem buscada no Sistema Lara."
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { status: 'LARA_RESPONSE_NOT_FOUND', message: 'Resposta da Lara nao encontrada dentro da janela de espera.', event_id: $json.event_id, to: $json.to } }];"
+      },
+      "id": "9",
+      "name": "Registrar resposta ausente no fluxo",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        860,
+        120
+      ],
+      "notesInFlow": true,
+      "notes": "Ponto de extensao para criar case/log quando a resposta nao estiver disponivel."
+    }
+  ],
+  "connections": {
+    "Recebe mensagem do WhatsApp para enviar Para o Sistema Lara": {
+      "main": [
+        [
+          {
+            "node": "Normaliza mensagem WhatsApp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Normaliza mensagem WhatsApp": {
+      "main": [
+        [
+          {
+            "node": "Envia mensagens para o sistema Lara",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Envia mensagens para o sistema Lara": {
+      "main": [
+        [
+          {
+            "node": "Aguardar Resposta do Sistema Lara",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aguardar Resposta do Sistema Lara": {
+      "main": [
+        [
+          {
+            "node": "Buscar mensagem no sistema Lara",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Buscar mensagem no sistema Lara": {
+      "main": [
+        [
+          {
+            "node": "Receber mensagem do Sistema Lara para enviar no WhatsApp",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Receber mensagem do Sistema Lara para enviar no WhatsApp": {
+      "main": [
+        [
+          {
+            "node": "Resposta encontrada?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resposta encontrada?": {
+      "main": [
+        [
+          {
+            "node": "Enviar resposta ao WhatsApp",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Registrar resposta ausente no fluxo",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "lara-whatsapp-polling-reconstruido-20260425",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  }
+}

@@ -1,0 +1,262 @@
+{
+  "name": "Lara Baixa Titulo Pos Confirmacao (conceitual)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "lara-payment-confirmed-settlement",
+        "responseMode": "lastNode",
+        "options": {
+          "responseCode": 200
+        }
+      },
+      "id": "1",
+      "name": "Recebe evento de pagamento confirmado pela Lara",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -900,
+        0
+      ],
+      "notesInFlow": true,
+      "notes": "Entrada do evento financeiro ja avaliado pela Lara. Nao deve receber eventos sem confirmacao positiva."
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $input.first()?.json?.body || $input.first()?.json || {};\nconst required = ['event_id', 'idempotency_key', 'amount_paid'];\nconst missing = required.filter((key) => body[key] === undefined || body[key] === null || body[key] === '');\nconst paymentConfirmed = body.payment_confirmed === true;\nreturn [{ json: { ...body, payment_confirmed: paymentConfirmed, missing_required: missing, confirmation_valid: paymentConfirmed && missing.length === 0 } }];"
+      },
+      "id": "2",
+      "name": "Valida confirmacao positiva da Lara",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -640,
+        0
+      ],
+      "notesInFlow": true,
+      "notes": "Bloqueia baixa quando payment_confirmed nao for true ou quando faltarem dados obrigatorios."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{$json.confirmation_valid}}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "3",
+      "name": "Confirmacao Lara valida?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        -380,
+        0
+      ],
+      "notesInFlow": true,
+      "notes": "Nenhuma chamada Oracle deve acontecer pelo ramo falso."
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{\n  json: {\n    event_id: $json.event_id,\n    idempotency_key: $json.idempotency_key,\n    payment_confirmed: true,\n    confirmed_by: $json.confirmed_by || 'lara',\n    confirmed_at: $json.confirmed_at || new Date().toISOString(),\n    payment_method: $json.payment_method || 'PIX',\n    amount_paid: Number($json.amount_paid),\n    currency: $json.currency || 'BRL',\n    codbanco: 1007,\n    candidate_title: $json.candidate_title || {},\n    evidence: $json.evidence || {},\n    audit: $json.audit || {},\n    raw_payload: $json\n  }\n}];"
+      },
+      "id": "4",
+      "name": "Monta payload baixa WinThor codbanco 1007",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -100,
+        -120
+      ],
+      "notesInFlow": true,
+      "notes": "Forca codbanco 1007 e preserva evidencia, auditoria e payload bruto."
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.LARA_BASE_URL}}/api/lara/winthor/baixa-titulo/confirmada",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-lara-api-key",
+              "value": "={{$env.LARA_API_KEY || \"\"}}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{$json}}"
+      },
+      "id": "5",
+      "name": "Chama rotina Oracle WinThor de baixa",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        180,
+        -120
+      ],
+      "notesInFlow": true,
+      "notes": "Endpoint ainda pendente no backend. Deve chamar rotina homologada, nao UPDATE direto na PCPREST."
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{$json.success === true || $json.process_code === \"OK_ALREADY_PROCESSED\"}}",
+              "value2": true
+            }
+          ]
+        }
+      },
+      "id": "6",
+      "name": "Baixa executada ou replay idempotente?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 1,
+      "position": [
+        460,
+        -120
+      ],
+      "notesInFlow": true,
+      "notes": "Separa sucesso real/replay idempotente de recusa tecnica ou funcional."
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { status: 'ok', process_code: $json.process_code, message: $json.message, settlement: $json } }];"
+      },
+      "id": "7",
+      "name": "Trata sucesso ou replay",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        740,
+        -240
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { status: 'blocked_or_error', process_code: $json.process_code || 'ERR_UNKNOWN', message: $json.message || 'Baixa nao executada.', settlement: $json } }];"
+      },
+      "id": "8",
+      "name": "Trata recusa ou erro",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        740,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "return [{ json: { success: false, payment_confirmed: false, settlement_executed: false, process_code: 'ERR_CONFIRMATION_NOT_VALID', process_status: 'blocked', message: 'Confirmacao positiva da Lara ausente ou dados obrigatorios ausentes.', technical_details: { missing_required: $json.missing_required || [] } } }];"
+      },
+      "id": "9",
+      "name": "Bloqueia confirmacao invalida",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -100,
+        140
+      ],
+      "notesInFlow": true,
+      "notes": "Retorno padronizado para n8n quando a confirmacao nao e suficiente."
+    }
+  ],
+  "connections": {
+    "Recebe evento de pagamento confirmado pela Lara": {
+      "main": [
+        [
+          {
+            "node": "Valida confirmacao positiva da Lara",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Valida confirmacao positiva da Lara": {
+      "main": [
+        [
+          {
+            "node": "Confirmacao Lara valida?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Confirmacao Lara valida?": {
+      "main": [
+        [
+          {
+            "node": "Monta payload baixa WinThor codbanco 1007",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Bloqueia confirmacao invalida",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Monta payload baixa WinThor codbanco 1007": {
+      "main": [
+        [
+          {
+            "node": "Chama rotina Oracle WinThor de baixa",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Chama rotina Oracle WinThor de baixa": {
+      "main": [
+        [
+          {
+            "node": "Baixa executada ou replay idempotente?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Baixa executada ou replay idempotente?": {
+      "main": [
+        [
+          {
+            "node": "Trata sucesso ou replay",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Trata recusa ou erro",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "lara-baixa-titulo-pos-confirmacao-20260425",
+  "meta": {
+    "templateCredsSetupCompleted": false
+  }
+}

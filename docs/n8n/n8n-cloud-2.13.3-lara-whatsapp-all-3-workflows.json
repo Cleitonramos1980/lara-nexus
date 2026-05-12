@@ -1,0 +1,486 @@
+{
+  "name": "Lara WhatsApp Single Callback (Verify GET + Callback POST) - n8n Cloud 2.13.3",
+  "nodes": [
+    {
+      "id": "vf1",
+      "name": "WhatsApp Verify Webhook (GET)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        -860,
+        180
+      ],
+      "webhookId": "lara-whatsapp-verify-v2133-single",
+      "parameters": {
+        "path": "lara-whatsapp-inbound",
+        "httpMethod": "GET",
+        "responseMode": "responseNode",
+        "options": {}
+      }
+    },
+    {
+      "id": "vf2",
+      "name": "Parse Verify Query",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -610,
+        180
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const src = $input.first()?.json || {};\nconst query = (src.query && typeof src.query === 'object') ? src.query : src;\n\nconst mode = String(query['hub.mode'] ?? query.hub_mode ?? query.mode ?? '').trim();\nconst verifyToken = String(query['hub.verify_token'] ?? query.hub_verify_token ?? query.verify_token ?? '').trim();\nconst challenge = String(query['hub.challenge'] ?? query.hub_challenge ?? query.challenge ?? '').trim();\n\nconst expectedToken = String($env.WHATSAPP_VERIFY_TOKEN || '').trim();\n\nconst valid = Boolean(\n  mode === 'subscribe' &&\n  challenge &&\n  expectedToken &&\n  verifyToken === expectedToken\n);\n\nreturn [{\n  json: {\n    valid,\n    challenge,\n    mode,\n    error: valid ? '' : 'invalid verify token, mode, or challenge',\n  },\n}];"
+      }
+    },
+    {
+      "id": "vf3",
+      "name": "Is Valid Verify Request?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -360,
+        180
+      ],
+      "parameters": {
+        "options": {},
+        "conditions": {
+          "options": {
+            "version": 2,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "cond-vf3-1",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              },
+              "leftValue": "={{$json.valid}}",
+              "rightValue": true
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "vf4",
+      "name": "Respond Challenge 200",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        -90,
+        80
+      ],
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "={{$json.challenge}}",
+        "options": {
+          "responseCode": 200,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "text/plain"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "vf5",
+      "name": "Respond Forbidden 403",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        -90,
+        280
+      ],
+      "parameters": {
+        "respondWith": "text",
+        "responseBody": "forbidden",
+        "options": {
+          "responseCode": 403,
+          "responseHeaders": {
+            "entries": [
+              {
+                "name": "Content-Type",
+                "value": "text/plain"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": "cb1",
+      "name": "WhatsApp Callback Webhook (POST)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        -860,
+        440
+      ],
+      "webhookId": "lara-whatsapp-callback-v2133-single",
+      "parameters": {
+        "path": "lara-whatsapp-inbound",
+        "httpMethod": "POST",
+        "responseMode": "onReceived",
+        "options": {}
+      }
+    },
+    {
+      "id": "cb2",
+      "name": "Split Callback Events",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -610,
+        440
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "function messageTextFromMessage(msg) {\n  if (!msg || typeof msg !== 'object') return '';\n  const type = msg.type || '';\n\n  if (type === 'text') return String(msg.text?.body || '').trim();\n  if (type === 'button') return String(msg.button?.text || '').trim();\n  if (type === 'interactive') {\n    const replyId = msg.interactive?.button_reply?.id || msg.interactive?.list_reply?.id || '';\n    const replyTitle = msg.interactive?.button_reply?.title || msg.interactive?.list_reply?.title || '';\n    return String(replyTitle || replyId || '').trim();\n  }\n  if (type === 'image') return '[imagem]';\n  if (type === 'document') return '[documento]';\n  if (type === 'audio') return '[audio]';\n  if (type === 'video') return '[video]';\n\n  return String(msg.caption || '').trim();\n}\n\nconst input = $input.first()?.json || {};\nconst out = [];\nconst entries = Array.isArray(input.entry) ? input.entry : [];\n\nfor (const entry of entries) {\n  const changes = Array.isArray(entry?.changes) ? entry.changes : [];\n  for (const change of changes) {\n    const value = change?.value || {};\n    const phoneNumberId = String(value?.metadata?.phone_number_id || '').trim();\n    const tenantId = String(input.tenant_id || $env.LARA_TENANT_ID || 'default').trim() || 'default';\n\n    const messages = Array.isArray(value.messages) ? value.messages : [];\n    for (const msg of messages) {\n      const waId = String(msg?.from || '').trim();\n      const messageText = messageTextFromMessage(msg);\n      if (!waId || !messageText) continue;\n\n      const tsRaw = String(msg?.timestamp || '').trim();\n      const tsNumber = Number(tsRaw);\n      const receivedAt = Number.isFinite(tsNumber) && tsNumber > 0\n        ? new Date(tsNumber * 1000).toISOString()\n        : new Date().toISOString();\n\n      out.push({\n        json: {\n          event_type: 'inbound',\n          event_id: String(msg?.id || (waId + '-' + Date.now())).trim(),\n          wa_id: waId,\n          telefone: waId,\n          message_text: messageText,\n          tenant_id: tenantId,\n          jurisdicao: 'BR',\n          canal: 'WHATSAPP',\n          received_at: receivedAt,\n          phone_number_id: phoneNumberId,\n          payload: {\n            entry_id: entry?.id,\n            change_field: change?.field,\n            message_type: msg?.type,\n            raw_message: msg,\n          },\n        },\n      });\n    }\n\n    const statuses = Array.isArray(value.statuses) ? value.statuses : [];\n    for (const st of statuses) {\n      const messageId = String(st?.id || '').trim();\n      const waId = String(st?.recipient_id || '').trim();\n      const status = String(st?.status || '').trim();\n      const tsRaw = String(st?.timestamp || '').trim();\n      const tsNumber = Number(tsRaw);\n      const timestamp = Number.isFinite(tsNumber) && tsNumber > 0\n        ? new Date(tsNumber * 1000).toISOString()\n        : new Date().toISOString();\n\n      if (!messageId || !status) continue;\n\n      out.push({\n        json: {\n          event_type: 'status',\n          event_id: messageId + ':' + status + ':' + timestamp,\n          message_id: messageId,\n          wa_id: waId,\n          status,\n          timestamp,\n          tenant_id: tenantId,\n          payload: {\n            entry_id: entry?.id,\n            change_field: change?.field,\n            raw_status: st,\n          },\n        },\n      });\n    }\n  }\n}\n\nreturn out;"
+      }
+    },
+    {
+      "id": "cb3",
+      "name": "Is Inbound Message?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -360,
+        360
+      ],
+      "parameters": {
+        "options": {},
+        "conditions": {
+          "options": {
+            "version": 2,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "cond-cb3-1",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              },
+              "leftValue": "={{$json.event_type}}",
+              "rightValue": "inbound"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "cb4",
+      "name": "Call Lara Inbound",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -110,
+        300
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.LARA_BASE_URL}}/api/lara/webhooks/whatsapp-inbound",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-lara-api-key",
+              "value": "={{$env.LARA_API_KEY}}"
+            },
+            {
+              "name": "x-lara-tenant-id",
+              "value": "={{$json.tenant_id || $env.LARA_TENANT_ID || \"default\"}}"
+            },
+            {
+              "name": "x-request-id",
+              "value": "={{$json.event_id}}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ ({ event_id: $json.event_id, wa_id: $json.wa_id, telefone: $json.telefone, message_text: $json.message_text, tenant_id: $json.tenant_id || $env.LARA_TENANT_ID || \"default\", jurisdicao: $json.jurisdicao || \"BR\", canal: $json.canal || \"WHATSAPP\", received_at: $json.received_at, payload: Object.assign({}, $json.payload || {}, { phone_number_id: $json.phone_number_id || $env.WHATSAPP_PHONE_NUMBER_ID || \"\" }) }) }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "cb5",
+      "name": "Merge Lara + Context",
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        130,
+        360
+      ],
+      "parameters": {
+        "mode": "combine",
+        "combineBy": "combineByPosition",
+        "options": {}
+      }
+    },
+    {
+      "id": "cb6",
+      "name": "Build Outbound WhatsApp Text",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        370,
+        360
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "const output = [];\nfor (const item of $input.all()) {\n  const d = item.json || {};\n  if (String(d.status || '').toLowerCase() !== 'ok') continue;\n\n  const to = String(d.wa_id || '').trim();\n  const text = String(d.mensagem || '').trim();\n  if (!to || !text) continue;\n\n  output.push({\n    json: {\n      to,\n      phone_number_id: String(d.phone_number_id || $env.WHATSAPP_PHONE_NUMBER_ID || '').trim(),\n      text,\n      lara_acao: String(d.acao || ''),\n      lara_status: String(d.status || ''),\n      codcli: d.codcli || '',\n      cliente: d.cliente || '',\n      event_id: String(d.event_id || ''),\n    },\n  });\n}\n\nreturn output;"
+      }
+    },
+    {
+      "id": "cb7",
+      "name": "Send WhatsApp Text",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        620,
+        360
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{\"https://graph.facebook.com/v22.0/\" + ($json.phone_number_id || $env.WHATSAPP_PHONE_NUMBER_ID) + \"/messages\"}}",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "={{\"Bearer \" + $env.WHATSAPP_TOKEN}}"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ ({ messaging_product: \"whatsapp\", recipient_type: \"individual\", to: $json.to, type: \"text\", text: { preview_url: false, body: $json.text } }) }}",
+        "options": {}
+      }
+    },
+    {
+      "id": "cb8",
+      "name": "Is Status Event?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -360,
+        560
+      ],
+      "parameters": {
+        "options": {},
+        "conditions": {
+          "options": {
+            "version": 2,
+            "leftValue": "",
+            "caseSensitive": true,
+            "typeValidation": "strict"
+          },
+          "combinator": "and",
+          "conditions": [
+            {
+              "id": "cond-cb8-1",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              },
+              "leftValue": "={{$json.event_type}}",
+              "rightValue": "status"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "cb9",
+      "name": "Call Lara Status",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -110,
+        560
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{$env.LARA_BASE_URL}}/api/lara/webhooks/whatsapp-status",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "x-lara-api-key",
+              "value": "={{$env.LARA_API_KEY}}"
+            },
+            {
+              "name": "x-lara-tenant-id",
+              "value": "={{$json.tenant_id || $env.LARA_TENANT_ID || \"default\"}}"
+            },
+            {
+              "name": "x-request-id",
+              "value": "={{$json.event_id}}"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ ({ event_id: $json.event_id, message_id: $json.message_id, wa_id: $json.wa_id, status: $json.status, timestamp: $json.timestamp, payload: $json.payload || {} }) }}",
+        "options": {}
+      }
+    }
+  ],
+  "connections": {
+    "WhatsApp Verify Webhook (GET)": {
+      "main": [
+        [
+          {
+            "node": "Parse Verify Query",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Verify Query": {
+      "main": [
+        [
+          {
+            "node": "Is Valid Verify Request?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Valid Verify Request?": {
+      "main": [
+        [
+          {
+            "node": "Respond Challenge 200",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Respond Forbidden 403",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "WhatsApp Callback Webhook (POST)": {
+      "main": [
+        [
+          {
+            "node": "Split Callback Events",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Callback Events": {
+      "main": [
+        [
+          {
+            "node": "Is Inbound Message?",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Is Status Event?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Inbound Message?": {
+      "main": [
+        [
+          {
+            "node": "Call Lara Inbound",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Merge Lara + Context",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Call Lara Inbound": {
+      "main": [
+        [
+          {
+            "node": "Merge Lara + Context",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge Lara + Context": {
+      "main": [
+        [
+          {
+            "node": "Build Outbound WhatsApp Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Build Outbound WhatsApp Text": {
+      "main": [
+        [
+          {
+            "node": "Send WhatsApp Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is Status Event?": {
+      "main": [
+        [
+          {
+            "node": "Call Lara Status",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {},
+  "meta": {
+    "templateCredsSetupCompleted": true
+  }
+}

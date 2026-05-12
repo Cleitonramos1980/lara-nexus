@@ -1,0 +1,20 @@
+Lara n8n Cloud 2.13.3 - Single Callback
+
+Arquivo principal para importar no n8n:
+- n8n-cloud-2.13.3-lara-whatsapp-single-callback.json
+
+Arquitetura:
+- GET /webhook/lara-whatsapp-inbound  -> verify challenge da Meta
+- POST /webhook/lara-whatsapp-inbound -> callback unico (messages + statuses)
+- n8n encaminha para Lara:
+  - /api/lara/webhooks/whatsapp-inbound
+  - /api/lara/webhooks/whatsapp-status
+- n8n envia ao WhatsApp apenas o texto final vindo da Lara (campo mensagem)
+
+Variaveis de ambiente no n8n:
+- LARA_BASE_URL
+- LARA_API_KEY
+- LARA_TENANT_ID (opcional, default=default)
+- WHATSAPP_VERIFY_TOKEN
+- WHATSAPP_TOKEN
+- WHATSAPP_PHONE_NUMBER_ID
