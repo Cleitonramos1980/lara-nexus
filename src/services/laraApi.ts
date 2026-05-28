@@ -15,7 +15,7 @@ type QueryValuePrimitive = string | number | boolean | null | undefined;
 type QueryValue = QueryValuePrimitive | QueryValuePrimitive[];
 type QueryParams = Record<string, QueryValue>;
 
-const API_BASE = (import.meta.env.VITE_LARA_API_BASE_URL || "http://localhost:3333/api").replace(/\/+$/, "");
+const API_BASE = (import.meta.env.VITE_LARA_API_BASE_URL || "/api").replace(/\/+$/, "");
 const API_KEY = String(import.meta.env.VITE_LARA_API_KEY || "").trim();
 
 function withQuery(path: string, query?: QueryParams): string {

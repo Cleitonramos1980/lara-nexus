@@ -977,7 +977,7 @@ export class LaraService {
     this.cacheWarmed = true;
   }
 
-  async recarregarTitulosOracle(input: { codcli?: number; limit?: number; includeDesd?: boolean }): Promise<SyncResult> {
+  async recarregarTitulosOracle(input: { codcli?: number; limit?: number; includeDesd?: boolean; skipCodcobFilter?: boolean }): Promise<SyncResult> {
     const isFullSync = input.codcli === undefined;
     const syncMarkerTs = "1900-01-01 00:00:00.000";
     const configuredLimit = input.limit !== undefined
@@ -1004,6 +1004,7 @@ export class LaraService {
         codcli: input.codcli,
         limit: currentPageLimit,
         offset: totalTitulosProcessados,
+        skipCodcobFilter: input.skipCodcobFilter,
       });
       if (!rows.length) break;
 
@@ -1227,26 +1228,21 @@ export class LaraService {
     let mensagem: string;
     let wamid: string | undefined;
 
-    if (titulos.length === 1) {
-      // Título único: usa o template WhatsApp da etapa (comportamento padrão)
-      const t = titulos[0];
-      const nome = cliente.cliente.split(" ")[0];
-      const result = await enviarTemplateEtapa({
-        to: waId,
-        etapa: t.etapa_regua,
-        cliente: nome,
-        duplicata: t.duplicata,
-        valor: formatMoneyBr(t.valor),
-        vencimento: formatDateBr(t.vencimento),
-      });
-      wamid = result?.messages?.[0]?.id;
-      mensagem = `[template:${t.etapa_regua}] ${t.duplicata} | ${formatMoneyBr(t.valor)}`;
-    } else {
-      // Múltiplos títulos: UMA única mensagem de texto consolidada
-      mensagem = this.buildApresentacaoTitulosMsg(cliente, titulos, total, timezone);
-      const result = await sendTextMessage(waId, mensagem);
-      wamid = result?.messages?.[0]?.id;
-    }
+    // Sempre usa template aprovado (obrigatório para mensagens proativas fora da janela de 24h)
+    const nome = cliente.cliente.split(" ")[0];
+    const t0 = titulos[0];
+    const result = await enviarTemplateEtapa({
+      to: waId,
+      etapa: etapa,
+      cliente: nome,
+      duplicata: titulos.length === 1 ? t0.duplicata : undefined,
+      valor: formatMoneyBr(total),
+      vencimento: titulos.length === 1 ? formatDateBr(t0.vencimento) : undefined,
+    });
+    wamid = result?.messages?.[0]?.id;
+    mensagem = titulos.length === 1
+      ? `[template:${etapa}] ${t0.duplicata} | ${formatMoneyBr(t0.valor)}`
+      : `[template:${etapa}] ${titulos.length} titulos | ${formatMoneyBr(total)}`;
 
     const duplicatasJoin = titulos.map((t) => t.duplicata).join(", ");
     const duplicatasList = titulos.map((t) => t.duplicata);

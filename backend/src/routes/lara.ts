@@ -283,6 +283,122 @@ export async function laraRoutes(app: FastifyInstance) {
     return laraOperationalStore.purgeInvalidCodcob(["341", "756", "BK"]);
   });
 
+  // Busca raw no Oracle sem filtros de CODCOB/DTPAG (uso em diagnóstico)
+  app.get("/api/lara/admin/oracle-pcprest", async (req) => {
+    const { codcli, duplic, numtransvenda } = z.object({
+      codcli: z.coerce.number().int().positive().optional(),
+      duplic: z.string().trim().optional(),
+      numtransvenda: z.coerce.number().int().optional(),
+    }).parse(req.query);
+    const { isOracleEnabled, withOracleConnection } = await import("../db/oracle.js");
+    const oracledb = (await import("oracledb")).default;
+    if (!isOracleEnabled()) return { rows: [], error: "Oracle não configurado" };
+    const wheres: string[] = [];
+    const binds: Record<string, unknown> = {};
+    if (codcli) { wheres.push("p.CODCLI = :codcli"); binds.codcli = codcli; }
+    if (duplic) { wheres.push("TRIM(p.DUPLIC) = :duplic"); binds.duplic = duplic; }
+    if (numtransvenda) { wheres.push("p.NUMTRANSVENDA = :numtransvenda"); binds.numtransvenda = numtransvenda; }
+    const where = wheres.length ? `AND ${wheres.join(" AND ")}` : "";
+    return withOracleConnection(async (conn: any) => {
+      const r = await conn.execute(
+        `SELECT p.CODCLI, TRIM(p.DUPLIC) AS DUPLIC, TRIM(p.PREST) AS PREST,
+                p.NUMTRANSVENDA, TRIM(p.CODCOB) AS CODCOB,
+                NVL(p.VALOR,0) AS VALOR, p.DTVENC, p.DTPAG,
+                TRIM(p.STATUS) AS STATUS
+         FROM PCPREST p
+         WHERE 1=1 ${where}
+         ORDER BY p.DTVENC DESC FETCH FIRST 20 ROWS ONLY`,
+        binds,
+        { outFormat: oracledb.OUT_FORMAT_OBJECT },
+      );
+      return { rows: r.rows };
+    });
+  });
+
+  // Injeta título diretamente no cache (uso em testes — bypassa Oracle)
+  app.post("/api/lara/admin/inject-titulo-teste", async (req) => {
+    const body = z.object({
+      codcli: z.coerce.number().int().positive(),
+      duplicata: z.string().min(1),
+      prestacao: z.string().default("1"),
+      valor: z.number().positive(),
+      vencimento: z.string(),
+      codcob: z.string().default("422"),
+      dias_atraso: z.number().int().default(0),
+    }).parse(req.body);
+
+    const titulo = {
+      id: `TIT-${body.codcli}-${body.duplicata}-${body.prestacao}`,
+      duplicata: body.duplicata,
+      prestacao: body.prestacao,
+      numtransvenda: 0,
+      numnota: 0,
+      codcli: String(body.codcli),
+      cliente: `Cliente ${body.codcli}`,
+      fantasia: `Cliente ${body.codcli}`,
+      telefone: "",
+      valor: body.valor,
+      vlreceber: body.valor,
+      vldesc: 0,
+      cmulta_prev: 0,
+      percmulta: 0,
+      vencimento: body.vencimento,
+      dtemissao: body.vencimento,
+      dtrecebimento_previsto: "",
+      dias_atraso: body.dias_atraso,
+      codcob: body.codcob,
+      cobranca: body.codcob,
+      rca: "",
+      etapa_regua: "D+30",
+      status_atendimento: "Em aberto",
+      boleto_disponivel: false,
+      pix_disponivel: true,
+      titulo_com_data_prevista: false,
+      ultima_acao: `[TESTE] Injetado via admin (CODCOB=${body.codcob})`,
+      responsavel: "Admin",
+      filial: "",
+    };
+
+    // Buscar nome do cliente no cache
+    const clienteExistente = await laraService.getCliente(body.codcli);
+    if (clienteExistente) {
+      titulo.cliente = clienteExistente.cliente || titulo.cliente;
+      titulo.fantasia = clienteExistente.cliente || titulo.fantasia;
+      titulo.telefone = clienteExistente.telefone || "";
+    }
+
+    await laraOperationalStore.upsertTitulosCacheBatch([titulo as any]);
+
+    // Atualizar total_aberto do cliente
+    if (clienteExistente) {
+      clienteExistente.total_aberto = (clienteExistente.total_aberto || 0) + body.valor;
+      clienteExistente.qtd_titulos = (clienteExistente.qtd_titulos || 0) + 1;
+      if (!clienteExistente.titulo_mais_antigo || body.vencimento < clienteExistente.titulo_mais_antigo) {
+        clienteExistente.titulo_mais_antigo = body.vencimento;
+      }
+      await laraOperationalStore.upsertClientesCacheBatch([clienteExistente]);
+    }
+
+    return { status: "ok", titulo_id: titulo.id, cliente: titulo.cliente };
+  });
+
+  // Remove título do cache por ID (uso em testes)
+  app.delete("/api/lara/admin/titulo-cache/:id", async (req) => {
+    const { id } = req.params as { id: string };
+    if (!id) throw new Error("id obrigatório");
+    await laraOperationalStore.deleteTituloCacheById(id);
+    return { status: "ok", deletado: id };
+  });
+
+  // Sync forçado para clientes fora do CODCOB padrão (uso em testes)
+  app.post("/api/lara/admin/forcar-sync-codcli", async (req) => {
+    const { codcli, limit } = z.object({
+      codcli: z.coerce.number().int().positive(),
+      limit: z.coerce.number().int().min(1).max(500).optional(),
+    }).parse(req.body);
+    return laraService.recarregarTitulosOracle({ codcli, limit: limit ?? 200, skipCodcobFilter: true });
+  });
+
   app.get("/api/lara/admin/pcfilial-columns", async () => {
     const cols = await getTableColumns("PCFILIAL");
     return { columns: [...cols].sort() };

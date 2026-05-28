@@ -82,6 +82,17 @@ async function dispatchPaymentForPromise(
   const clienteNome = cliente?.cliente || promessa.cliente || "cliente";
   const waId = promessa.wa_id || cliente?.wa_id || "";
 
+  // Não disparar PIX se cliente não tem saldo em aberto (títulos já quitados)
+  if (codcli > 0 && cliente && (cliente.total_aberto ?? 0) <= 0) {
+    logger?.info?.({
+      modulo: "lara-promessa-followup",
+      promessa_id: promessa.id,
+      codcli,
+    }, "Promessa encerrada: cliente sem saldo em aberto");
+    await laraOperationalStore.updatePromessaStatus(promessa.id, "encerrada").catch(() => {});
+    return "enviado";
+  }
+
   if (!waId || !isWhatsAppConfigured()) {
     await laraService.createCase({
       wa_id: waId,

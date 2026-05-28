@@ -1438,6 +1438,10 @@ export class LaraOperationalStore {
     );
   }
 
+  async deleteTituloCacheById(id: string): Promise<void> {
+    await execDml(`DELETE FROM LARA_TITULOS_CACHE WHERE ID = :id`, { id });
+  }
+
   async upsertTitulosCacheBatch(titulos: LaraTitulo[]): Promise<void> {
     if (!titulos.length) return;
 

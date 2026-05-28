@@ -45,8 +45,10 @@ export type OpenTitleQueryOptions = {
   codcli?: number;
   duplicata?: string;
   prestacao?: string;
+  numnota?: number;
   limit?: number;
   offset?: number;
+  skipCodcobFilter?: boolean;
 };
 
 type OracleTopClientRow = {
@@ -424,6 +426,11 @@ export async function listOpenTitlesFromOracle(
     binds.prestacao = prestacao;
   }
 
+  if (options.numnota !== undefined) {
+    extraWhere.push("fn.NUMNOTA = :numnota");
+    binds.numnota = options.numnota;
+  }
+
   const extraWhereClause = extraWhere.length > 0 ? `AND ${extraWhere.join("\n      AND ")}` : "";
 
   const coreSql = `
@@ -487,7 +494,7 @@ export async function listOpenTitlesFromOracle(
     LEFT JOIN ${getQualifiedTableName("PCFILIAL")} pfl ON pfl.CODIGO  = p.CODFILIAL
     WHERE p.DTPAG IS NULL
       AND NVL(p.VALOR, 0) <> 0
-      AND TRIM(p.CODCOB) IN ${CODCOB_ATIVOS}
+      ${options.skipCodcobFilter ? "" : `AND TRIM(p.CODCOB) IN ${CODCOB_ATIVOS}`}
       ${extraWhereClause}
   `;
 
