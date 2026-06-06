@@ -90,7 +90,7 @@ export default function LaraDashboard() {
 
   return (
     <LaraLayout>
-      <PageHeader title="Dashboard Executivo" subtitle="Visão consolidada da operação de cobrança" />
+      <PageHeader title="Dashboard" subtitle="Visão geral da operação de cobrança inteligente." />
 
       <div className="mb-6 grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6">
         <CardKPI label="Total em Aberto" value={formatCurrency(kpis?.totalAberto ?? 0)} icon={<DollarSign className="h-4 w-4" />} onClick={() => goTitulos()} />

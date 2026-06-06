@@ -60,8 +60,8 @@ export default function LaraConfiguracoes() {
   return (
     <LaraLayout>
       <PageHeader
-        title="Configuracoes"
-        subtitle="Parametros da operacao de cobranca"
+        title="Configurações"
+        subtitle="Parâmetros gerais, canais, integrações, segurança e ambiente."
         actions={<Badge variant="outline" className="text-xs">Integrado com backend</Badge>}
       />
 
@@ -87,7 +87,7 @@ export default function LaraConfiguracoes() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <Label className="text-xs">Chave PIX</Label>
-              <Input value={pixChave} onChange={(e) => setPixChave(e.target.value)} className="mt-1.5" />
+              <Input type="password" value={pixChave} onChange={(e) => setPixChave(e.target.value)} className="mt-1.5" autoComplete="off" />
             </div>
             <div>
               <Label className="text-xs">URL Base do Boleto</Label>
@@ -99,13 +99,13 @@ export default function LaraConfiguracoes() {
         <Separator />
 
         <section className="rounded-lg border bg-card p-6">
-          <h3 className="text-sm font-semibold text-foreground mb-4">Regua Ativa</h3>
+          <h3 className="text-sm font-semibold text-foreground mb-4">Régua Ativa</h3>
           <div className="space-y-4">
             {['D-3', 'D0', 'D+3', 'D+7', 'D+15', 'D+30'].map(etapa => (
               <div key={etapa} className="flex items-center justify-between py-2 px-3 rounded-md border">
                 <div className="flex items-center gap-3">
                   <span className="font-mono text-sm font-bold text-foreground w-10">{etapa}</span>
-                  <span className="text-xs text-muted-foreground">Disparo automatico</span>
+                  <span className="text-xs text-muted-foreground">Disparo automático</span>
                 </div>
                 <Switch defaultChecked />
               </div>
@@ -116,32 +116,31 @@ export default function LaraConfiguracoes() {
         <Separator />
 
         <section className="rounded-lg border bg-card p-6">
-          <h3 className="text-sm font-semibold text-foreground mb-4">Operacao</h3>
+          <h3 className="text-sm font-semibold text-foreground mb-4">Operação</h3>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <Label className="text-xs">Cooldown entre mensagens (minutos)</Label>
               <Input type="number" value={cooldownMin} onChange={(e) => setCooldownMin(e.target.value)} className="mt-1.5" />
             </div>
             <div>
-              <Label className="text-xs">Janela de contexto da regua (horas)</Label>
+              <Label className="text-xs">Janela de contexto da régua (horas)</Label>
               <Input type="number" value={janelaContextoHoras} onChange={(e) => setJanelaContextoHoras(e.target.value)} className="mt-1.5" />
             </div>
             <div>
-              <Label className="text-xs">Horario de inicio dos disparos</Label>
+              <Label className="text-xs">Horário de início dos disparos</Label>
               <Input type="time" value={inicioDisparo} onChange={(e) => setInicioDisparo(e.target.value)} className="mt-1.5" />
             </div>
             <div>
-              <Label className="text-xs">Horario de fim dos disparos</Label>
+              <Label className="text-xs">Horário de fim dos disparos</Label>
               <Input type="time" value={fimDisparo} onChange={(e) => setFimDisparo(e.target.value)} className="mt-1.5" />
             </div>
           </div>
         </section>
 
         <div className="flex justify-end pb-6">
-          <Button onClick={onSave}>{mutation.isPending ? 'Salvando...' : 'Salvar Configuracoes'}</Button>
+          <Button onClick={onSave}>{mutation.isPending ? 'Salvando...' : 'Salvar Configurações'}</Button>
         </div>
       </div>
     </LaraLayout>
   );
 }
-

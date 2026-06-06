@@ -44,7 +44,7 @@ export default function LaraPromessas() {
 
   return (
     <LaraLayout>
-      <PageHeader title="Promessas de Pagamento" subtitle="Agendamentos de pagamento registrados pela Lara" />
+      <PageHeader title="Promessas de Pagamento" subtitle="Controle de promessas ativas, vencidas, cumpridas e quebradas." />
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         <CardKPI label="Total Promessas" value={total} icon={<Handshake className="h-4 w-4" />} />

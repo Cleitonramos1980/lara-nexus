@@ -3,6 +3,7 @@ import { laraService } from "./service.js";
 import { dateToIsoDate, dateToIsoDateTime, makeIdempotencyKey } from "./utils.js";
 import { sendTextMessage, isWhatsAppConfigured } from "./whatsappTemplateManager.js";
 import { markPromiseBroken, resolveOutcome } from "./outcomeTracker.js";
+import { isPilotAllowed, getPilotCodclis } from "../../config/env.js";
 
 type LoggerLike = {
   info?: (payload: Record<string, unknown>, message?: string) => void;
@@ -78,6 +79,18 @@ async function dispatchPaymentForPromise(
   logger?: LoggerLike,
 ): Promise<"enviado" | "sem_wa" | "erro"> {
   const codcli = Number(promessa.codcli ?? 0);
+
+  // Modo piloto: bloqueia envio para codcli não autorizado
+  if (!isPilotAllowed(codcli)) {
+    logger?.info?.({
+      modulo: "lara-promessa-followup",
+      promessa_id: promessa.id,
+      codcli,
+      pilot_codclis: Array.from(getPilotCodclis()),
+    }, "[PILOTO] Follow-up bloqueado — codcli não autorizado no modo piloto");
+    return "sem_wa";
+  }
+
   const cliente = codcli > 0 ? await laraService.getCliente(codcli) : null;
   const clienteNome = cliente?.cliente || promessa.cliente || "cliente";
   const waId = promessa.wa_id || cliente?.wa_id || "";

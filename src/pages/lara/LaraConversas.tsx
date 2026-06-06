@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { LaraLayout } from '@/components/lara/LaraLayout';
 import { PageHeader } from '@/components/lara/PageHeader';
@@ -43,9 +43,9 @@ export default function LaraConversas() {
     staleTime: 60_000,
   });
 
-  const conversas = conversasData ?? [];
-  const clientes = clientesData ?? [];
-  const titulos = titulosData ?? [];
+  const conversas = useMemo(() => conversasData ?? [], [conversasData]);
+  const clientes = useMemo(() => clientesData ?? [], [clientesData]);
+  const titulos = useMemo(() => titulosData ?? [], [titulosData]);
 
   useEffect(() => {
     if (!selected && conversas[0]?.id) setSelected(conversas[0].id);
@@ -76,7 +76,7 @@ export default function LaraConversas() {
 
   return (
     <LaraLayout>
-      <PageHeader title="Conversas" subtitle="Acompanhamento e histórico de conversas via WhatsApp" />
+      <PageHeader title="Conversas" subtitle="Histórico de interações entre cliente, Lara, WhatsApp e operação." />
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
         <CardKPI label="Total de Conversas" value={totalConversas} icon={<MessageSquare className="h-4 w-4" />} />
@@ -144,7 +144,7 @@ export default function LaraConversas() {
 
         <div className="border rounded-lg bg-card overflow-hidden flex flex-col">
           {!current ? (
-            <EmptyState title="Selecione uma conversa" description="Clique em uma conversa na lista para visualizar o historico." />
+            <EmptyState title="Selecione uma conversa" description="Clique em uma conversa na lista para visualizar o histórico." />
           ) : (
             <>
               <div className="p-4 border-b bg-muted/20">
@@ -259,4 +259,3 @@ export default function LaraConversas() {
     </LaraLayout>
   );
 }
-

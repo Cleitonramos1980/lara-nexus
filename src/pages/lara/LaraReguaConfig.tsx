@@ -183,7 +183,7 @@ export default function LaraReguaConfig() {
     <LaraLayout>
       <PageHeader
         title="Parametrização da Régua"
-        subtitle="Defina etapas, prazos, mensagens e regras da régua de cobrança"
+        subtitle="Configure etapas, canais, templates, prazos e regras de acionamento."
         actions={
           <div className="flex gap-2">
             <Button variant="outline" size="sm" className="text-xs" onClick={addEtapa}>
@@ -508,5 +508,4 @@ export default function LaraReguaConfig() {
     </LaraLayout>
   );
 }
-
 

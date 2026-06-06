@@ -48,6 +48,8 @@ const envSchema = z.object({
   ALLOW_WEAK_AUTH_STATIC_PASSWORD: booleanFromEnv.default(false),
   AUDITORIA_CARTAO_ENABLE_ERP_MIRROR_FALLBACK: booleanFromEnv.default(false),
   LARA_API_KEY: z.string().optional(),
+  CORS_ALLOWED_ORIGIN: z.string().optional(),
+  LARA_SCHEDULERS_ENABLED: booleanFromEnv.default(true),
   BRADESCO_PIX_WEBHOOK_SECRET: z.string().optional(),
   // WhatsApp Business Cloud API
   WHATSAPP_WABA_ID: z.string().optional(),
@@ -76,6 +78,12 @@ const envSchema = z.object({
   OPENAI_RETRY_BASE_DELAY_MS: z.coerce.number().int().min(50).max(5000).default(250),
   OPENAI_CB_FAILURE_THRESHOLD: z.coerce.number().int().min(1).max(20).default(5),
   OPENAI_CB_COOLDOWN_MS: z.coerce.number().int().min(1000).max(900000).default(60000),
+  // uazapiGO WhatsApp API (canal alternativo ao Meta Cloud API)
+  UAZAPI_BASE_URL: z.string().url().optional(),
+  UAZAPI_TOKEN: z.string().optional(),
+  UAZAPI_WEBHOOK_SECRET: z.string().optional(),
+  // Piloto: lista de codcli autorizados para envio (vazio = sem restrição)
+  LARA_PILOT_CODCLIS: z.string().optional(),
 });
 
 export type Env = z.infer<typeof envSchema>;
@@ -105,4 +113,24 @@ export function hasOracleConfig(): boolean {
 export function getOracleConnectString(): string {
   if (env.ORACLE_CONNECT_STRING) return env.ORACLE_CONNECT_STRING;
   return `${env.ORACLE_HOST}:${env.ORACLE_PORT}/${env.ORACLE_SERVICE_NAME}`;
+}
+
+/**
+ * Retorna o conjunto de codcli autorizados para envio de mensagens.
+ * Se vazio, não há restrição (produção plena).
+ */
+export function getPilotCodclis(): Set<number> {
+  const raw = env.LARA_PILOT_CODCLIS ?? "";
+  if (!raw.trim()) return new Set();
+  return new Set(
+    raw.split(",").map((s) => s.trim()).filter(Boolean).map(Number).filter((n) => Number.isFinite(n) && n > 0),
+  );
+}
+
+/** Retorna true se o codcli está autorizado a receber mensagens no modo piloto. */
+export function isPilotAllowed(codcli: number | null | undefined): boolean {
+  const pilot = getPilotCodclis();
+  if (pilot.size === 0) return true; // sem restrição
+  if (!codcli || codcli <= 0) return false;
+  return pilot.has(codcli);
 }

@@ -1,6 +1,6 @@
 import { queryOne } from "../../repositories/baseRepository.js";
 import { isOracleEnabled } from "../../db/oracle.js";
-import { env } from "../../config/env.js";
+import { env, isPilotAllowed, getPilotCodclis } from "../../config/env.js";
 import { readFile } from "node:fs/promises";
 import { request as httpsRequest } from "node:https";
 import forge from "node-forge";
@@ -29,6 +29,7 @@ import {
   sendTextMessage,
   isWhatsAppConfigured,
 } from "./whatsappTemplateManager.js";
+import { sendText as uazapiSendText, isUazapiConfigured } from "./uazapiService.js";
 import {
   baixarTituloOracle,
   consultarBoletoWinthor,
@@ -1212,7 +1213,7 @@ export class LaraService {
     const waId = normalizeWaId(cliente.wa_id || cliente.telefone);
     if (!waId) return { status: "sem_wa_id" };
 
-    if (!isWhatsAppConfigured()) {
+    if (!isUazapiConfigured() && !isWhatsAppConfigured()) {
       return { status: "whatsapp_nao_configurado", wa_id: waId };
     }
 
@@ -1221,28 +1222,52 @@ export class LaraService {
 
     const total = roundMoney(titulos.reduce((sum, t) => sum + t.valor, 0));
     const etapa = cliente.etapa_regua || titulos[0].etapa_regua;
-    const timezone = String(
-      await laraOperationalStore.getConfiguracao("LARA_SYNC_DAILY_TIMEZONE") ?? "America/Sao_Paulo"
-    );
 
     let mensagem: string;
     let wamid: string | undefined;
 
-    // Sempre usa template aprovado (obrigatório para mensagens proativas fora da janela de 24h)
     const nome = cliente.cliente.split(" ")[0];
     const t0 = titulos[0];
-    const result = await enviarTemplateEtapa({
-      to: waId,
-      etapa: etapa,
-      cliente: nome,
-      duplicata: titulos.length === 1 ? t0.duplicata : undefined,
-      valor: formatMoneyBr(total),
-      vencimento: titulos.length === 1 ? formatDateBr(t0.vencimento) : undefined,
-    });
-    wamid = result?.messages?.[0]?.id;
-    mensagem = titulos.length === 1
-      ? `[template:${etapa}] ${t0.duplicata} | ${formatMoneyBr(t0.valor)}`
-      : `[template:${etapa}] ${titulos.length} titulos | ${formatMoneyBr(total)}`;
+
+    if (isUazapiConfigured()) {
+      // Canal uazapi: texto livre, sem necessidade de template aprovado
+      let texto: string;
+      if (titulos.length === 1) {
+        texto =
+          `Ola ${nome}! Identificamos um titulo em aberto:\n\n` +
+          `📋 Duplicata: ${t0.duplicata}\n` +
+          `💰 Valor: ${formatMoneyBr(t0.valor)}\n` +
+          `📅 Vencimento: ${formatDateBr(t0.vencimento)}\n\n` +
+          `Para regularizar, responda *BOLETO* ou *PIX* e te envio o codigo de pagamento.`;
+      } else {
+        const linhas = titulos.slice(0, 5).map((t) =>
+          `• ${t.duplicata} — ${formatMoneyBr(t.valor)} (venc. ${formatDateBr(t.vencimento)})`
+        ).join("\n");
+        texto =
+          `Ola ${nome}! Voce possui ${titulos.length} titulo(s) em aberto totalizando *${formatMoneyBr(total)}*:\n\n` +
+          `${linhas}${titulos.length > 5 ? `\n...e mais ${titulos.length - 5} titulo(s)` : ""}\n\n` +
+          `Para regularizar, responda *BOLETO* ou *PIX* e te envio o codigo de pagamento.`;
+      }
+      const res = await uazapiSendText(waId, texto);
+      wamid = res.messageid;
+      mensagem = titulos.length === 1
+        ? `[uazapi:${etapa}] ${t0.duplicata} | ${formatMoneyBr(t0.valor)}`
+        : `[uazapi:${etapa}] ${titulos.length} titulos | ${formatMoneyBr(total)}`;
+    } else {
+      // Canal Meta: usa template aprovado
+      const result = await enviarTemplateEtapa({
+        to: waId,
+        etapa,
+        cliente: nome,
+        duplicata: titulos.length === 1 ? t0.duplicata : undefined,
+        valor: formatMoneyBr(total),
+        vencimento: titulos.length === 1 ? formatDateBr(t0.vencimento) : undefined,
+      });
+      wamid = result?.messages?.[0]?.id;
+      mensagem = titulos.length === 1
+        ? `[template:${etapa}] ${t0.duplicata} | ${formatMoneyBr(t0.valor)}`
+        : `[template:${etapa}] ${titulos.length} titulos | ${formatMoneyBr(total)}`;
+    }
 
     const duplicatasJoin = titulos.map((t) => t.duplicata).join(", ");
     const duplicatasList = titulos.map((t) => t.duplicata);
@@ -4586,6 +4611,20 @@ export class LaraService {
       idempotency_key: idempotencyKey,
     });
 
+    // Modo piloto: se codcli já é conhecido e não está autorizado, loga mas não responde
+    if (inboundCodcli && !isPilotAllowed(inboundCodcli)) {
+      // Loga para visibilidade mas não processa nem envia resposta
+      void laraOperationalStore.addIntegrationLog({
+        integracao: "whatsapp",
+        tipo: "inbound-blocked-pilot",
+        request_json: { wa_id: waId, codcli: inboundCodcli, pilot_codclis: Array.from(getPilotCodclis()) },
+        response_json: { motivo: "codcli_nao_autorizado_piloto" },
+        status_operacao: "bloqueado",
+        idempotency_key: makeIdempotencyKey([waId, "pilot-block", idempotencyKey]),
+      });
+      return { status: "ok", mensagem: "", acao: "ignorar", wa_id: waId };
+    }
+
     // Registro automático de feedback: cliente respondeu → alimenta o loop de aprendizado
     void laraOperationalStore.addIntegrationLog({
       integracao: "feedback-loop",
@@ -4937,10 +4976,18 @@ export class LaraService {
       || /\bdia\s+util\b|\bdias?\s+uteis?\b/.test(normalizedMsg)
     );
 
+    const hasPaymentContext = Boolean(
+      identificacao.contexto
+      && (identificacao.contexto.duplicatas?.length || titulos.length > 0),
+    );
+    const isAffirmativeContextReply = /\b(ok|sim|certo|beleza|fechado|confirmo|confirmado|pode|manda|mandar|envia|enviar)\b/.test(normalizedMsg);
     const shouldSendByContext =
-      (intent === "confirmacao_contexto" || (nlu.confidence < 0.55 && hasMentionedTitulo && !hasSchedulingWords))
-      && identificacao.contexto
-      && Boolean(identificacao.contexto.duplicatas?.length || titulos.length > 0);
+      hasPaymentContext
+      && !hasSchedulingWords
+      && (
+        intent === "confirmacao_contexto"
+        || (nlu.confidence < 0.55 && (hasMentionedTitulo || isAffirmativeContextReply))
+      );
 
     const nbaIntent = (hasMentionedTitulo && hasSchedulingWords)
       ? "promessa_pagamento"
@@ -4949,11 +4996,11 @@ export class LaraService {
         : hasSchedulingWords && (intent === "solicitar_pagamento" || intent === "promessa_pagamento")
           ? "promessa_pagamento"
           : shouldSendByContext
-            ? "solicitar_pix"
+            ? "solicitar_boleto"
             : intent;
 
     // Sempre eleva confiança quando o título está explícito na mensagem — o intent é inequívoco
-    const nbaConfidence = hasMentionedTitulo ? 0.95 : nlu.confidence;
+    const nbaConfidence = hasMentionedTitulo || shouldSendByContext ? 0.95 : nlu.confidence;
 
     const nba = await chooseNextBestAction({
       intent: nbaIntent,

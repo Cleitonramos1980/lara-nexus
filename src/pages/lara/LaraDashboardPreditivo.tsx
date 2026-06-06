@@ -77,7 +77,7 @@ export default function LaraDashboardPreditivo() {
 
   const { data, isLoading, isError } = useQuery({
     queryKey: ['lara-dashboard-preditivo', selectedFiliaisKey],
-    queryFn: () => getDashboardPreditivo(filial) as Promise<PreditivoData>,
+    queryFn: () => getDashboardPreditivo(filial) as unknown as Promise<PreditivoData>,
     staleTime: 120_000,
   });
 
@@ -91,7 +91,7 @@ export default function LaraDashboardPreditivo() {
     <LaraLayout>
       <PageHeader
         title="Dashboard Preditivo"
-        subtitle="Priorização inteligente de cobrança e previsão de recuperação"
+        subtitle="Propensão de pagamento, risco, sentimento e próxima melhor ação."
       />
 
       {isError && (

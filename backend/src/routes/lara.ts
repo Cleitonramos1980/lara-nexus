@@ -1,4 +1,5 @@
 import type { FastifyInstance, FastifyRequest } from "fastify";
+import { requireRole } from "../utils/authorization.js";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { z } from "zod";
 import { env } from "../config/env.js";
@@ -279,12 +280,14 @@ export async function laraRoutes(app: FastifyInstance) {
     return laraService.recarregarTitulosOracle(body);
   });
 
-  app.post("/api/lara/admin/purge-invalid-codcob", async (_req) => {
+  app.post("/api/lara/admin/purge-invalid-codcob", async (req) => {
+    requireRole(req, ["ADMIN"]);
     return laraOperationalStore.purgeInvalidCodcob(["341", "756", "BK"]);
   });
 
   // Busca raw no Oracle sem filtros de CODCOB/DTPAG (uso em diagnóstico)
   app.get("/api/lara/admin/oracle-pcprest", async (req) => {
+    requireRole(req, ["ADMIN"]);
     const { codcli, duplic, numtransvenda } = z.object({
       codcli: z.coerce.number().int().positive().optional(),
       duplic: z.string().trim().optional(),
@@ -317,6 +320,7 @@ export async function laraRoutes(app: FastifyInstance) {
 
   // Injeta título diretamente no cache (uso em testes — bypassa Oracle)
   app.post("/api/lara/admin/inject-titulo-teste", async (req) => {
+    requireRole(req, ["ADMIN"]);
     const body = z.object({
       codcli: z.coerce.number().int().positive(),
       duplicata: z.string().min(1),
@@ -384,6 +388,7 @@ export async function laraRoutes(app: FastifyInstance) {
 
   // Remove título do cache por ID (uso em testes)
   app.delete("/api/lara/admin/titulo-cache/:id", async (req) => {
+    requireRole(req, ["ADMIN"]);
     const { id } = req.params as { id: string };
     if (!id) throw new Error("id obrigatório");
     await laraOperationalStore.deleteTituloCacheById(id);
@@ -392,6 +397,7 @@ export async function laraRoutes(app: FastifyInstance) {
 
   // Sync forçado para clientes fora do CODCOB padrão (uso em testes)
   app.post("/api/lara/admin/forcar-sync-codcli", async (req) => {
+    requireRole(req, ["ADMIN"]);
     const { codcli, limit } = z.object({
       codcli: z.coerce.number().int().positive(),
       limit: z.coerce.number().int().min(1).max(500).optional(),
@@ -399,7 +405,8 @@ export async function laraRoutes(app: FastifyInstance) {
     return laraService.recarregarTitulosOracle({ codcli, limit: limit ?? 200, skipCodcobFilter: true });
   });
 
-  app.get("/api/lara/admin/pcfilial-columns", async () => {
+  app.get("/api/lara/admin/pcfilial-columns", async (req) => {
+    requireRole(req, ["ADMIN"]);
     const cols = await getTableColumns("PCFILIAL");
     return { columns: [...cols].sort() };
   });
@@ -570,6 +577,7 @@ export async function laraRoutes(app: FastifyInstance) {
   });
 
   app.put("/api/lara/regua/config", async (req) => {
+    requireRole(req, ["ADMIN", "FINANCEIRO"]);
     const body = reguaConfigPutBodySchema.parse(req.body);
     await laraService.saveReguaConfig(body);
     const [templates, configuracoes] = await Promise.all([
@@ -627,6 +635,7 @@ export async function laraRoutes(app: FastifyInstance) {
   });
 
   app.delete("/api/lara/optout/:id", async (req, reply) => {
+    requireRole(req, ["ADMIN", "FINANCEIRO"]);
     const { id } = z.object({ id: z.string().min(1) }).parse(req.params);
     const removed = await laraService.removeOptout(id);
     if (!removed) return reply.status(404).send({ error: { message: "Registro de opt-out não encontrado." } });
@@ -831,6 +840,7 @@ export async function laraRoutes(app: FastifyInstance) {
   });
 
   app.put("/api/lara/negociacao/politicas/:etapa", async (req) => {
+    requireRole(req, ["ADMIN", "FINANCEIRO"]);
     const { etapa } = z.object({ etapa: z.string() }).parse(req.params);
     const body = z.object({
       desconto_maximo_pct: z.number().min(0).max(50),
@@ -839,6 +849,16 @@ export async function laraRoutes(app: FastifyInstance) {
       ativo: z.boolean(),
     }).parse(req.body);
     return laraService.upsertPoliticaNegociacao({ etapa_regua: etapa, ...body });
+  });
+
+  app.get("/api/lara/negociacao/historico", async (req) => {
+    const { limit, codcli } = z.object({
+      limit: z.coerce.number().int().min(1).max(2000).optional(),
+      codcli: z.coerce.number().int().positive().optional(),
+    }).parse(req.query);
+    const rows = await laraOperationalStore.listNegociacoes(limit ?? 500);
+    if (codcli) return rows.filter((r) => r.codcli === String(codcli));
+    return rows;
   });
 
   app.post("/api/lara/negociacao/simular", async (req) => {

@@ -404,7 +404,7 @@ export async function listOpenTitlesFromOracle(
   const pcfColumns = await getTableColumns("PCFILIAL");
   const nomeFilialCol = firstAvailableColumn(pcfColumns, ["NOMEFIL", "NOMEFILIAL", "NOME", "FANTASIA", "RAZAOSOCIAL"]);
 
-  const CODCOB_ATIVOS = `('341','756','BK')`;
+  const CODCOB_ATIVOS = `('341','422','756','BK')`;
 
   const extraWhere: string[] = [];
   const binds: Record<string, unknown> = {};
@@ -536,7 +536,7 @@ export async function listTopOpenClientsFromOracle(limit = 100): Promise<OracleT
   const phoneExpr = buildPhoneExpression("c", pccColumns);
   const pcfColumns = await getTableColumns("PCFILIAL");
   const nomeFilialCol = firstAvailableColumn(pcfColumns, ["NOMEFIL", "NOMEFILIAL", "NOME", "FANTASIA", "RAZAOSOCIAL"]);
-  const CODCOB_ATIVOS = `('341','756','BK')`;
+  const CODCOB_ATIVOS = `('341','422','756','BK')`;
   const filialExpr = nomeFilialCol
     ? `MAX(NVL(TRIM(pfl.${nomeFilialCol}), TRIM(TO_CHAR(p.CODFILIAL))))`
     : `MAX(TRIM(TO_CHAR(p.CODFILIAL)))`;
@@ -586,7 +586,7 @@ export async function getOpenSummaryByCodcli(codcli: number): Promise<{
     };
   }
 
-  const CODCOB_ATIVOS = `('341','756','BK')`;
+  const CODCOB_ATIVOS = `('341','422','756','BK')`;
   const row = await queryOne<{
     TOTAL_ABERTO: number;
     QTD_TITULOS: number;

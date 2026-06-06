@@ -39,7 +39,7 @@ export default function LaraFeedbackInsights() {
     <LaraLayout>
       <PageHeader
         title="Feedback & Insights"
-        subtitle="Análise de conversão e efetividade das interações da régua"
+        subtitle="Aprendizado da operação, desempenho da IA e oportunidades de melhoria."
       />
 
       <div className="flex flex-wrap gap-2 mb-5">

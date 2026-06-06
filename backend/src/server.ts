@@ -26,6 +26,7 @@ import { inspecoesRoutes } from "./routes/inspecoes.js";
 import { sesmtRoutes } from "./routes/sesmt.js";
 import { assistenciaTerceirizadaRoutes } from "./routes/assistenciaTerceirizada.js";
 import { laraRoutes } from "./routes/lara.js";
+import { uazapiRoutes } from "./routes/uazapi.js";
 import {
   initPersistentCollections,
   persistAllCollections,
@@ -86,11 +87,35 @@ app.addHook("onRequest", async (request, reply) => {
   reply.header("x-request-id", correlationId);
 });
 
+// Rotas Lara públicas (chamadas por sistemas externos: Meta, Bradesco, n8n)
+// — não exigem API Key nem JWT
+const LARA_PUBLIC_EXACT_PATHS = new Set([
+  "/api/lara/webhook/meta",
+  "/api/lara/webhook/uazapi",
+  "/api/lara/bradesco/pix/webhook",
+  "/api/lara/bradesco/pix/reconciliar",
+  "/api/lara/bradesco/bolepix/webhook/pagamento",
+  "/api/lara/atendimentos/processar-mensagem",
+]);
+const LARA_PUBLIC_PREFIXES = [
+  "/api/lara/webhooks/",
+  "/api/lara/orquestracao/",
+];
+
 app.addHook("preHandler", async (request, reply) => {
   if (!request.url.startsWith("/api")) return;
   if (request.method === "OPTIONS") return;
 
   const path = request.url.split("?")[0];
+  const routeConfig = request.routeOptions?.config as { skipLaraAuth?: boolean } | undefined;
+  if (routeConfig?.skipLaraAuth) return;
+
+  // Rotas Lara de webhook e processamento — sempre públicas (sistemas externos não têm API Key)
+  if (
+    LARA_PUBLIC_EXACT_PATHS.has(path) ||
+    LARA_PUBLIC_PREFIXES.some((prefix) => path.startsWith(prefix))
+  ) return;
+
   const laraApiKeyConfigured = String(env.LARA_API_KEY ?? "").trim();
   if (path.startsWith("/api/lara/") && laraApiKeyConfigured) {
     const rawHeader = request.headers["x-lara-api-key"];
@@ -98,6 +123,8 @@ app.addHook("preHandler", async (request, reply) => {
     if (String(providedKey ?? "").trim() !== laraApiKeyConfigured) {
       return reply.status(401).send({ error: { message: "Nao autorizado para modulo Lara." } });
     }
+    // API Key válida — rota Lara autorizada, pular verificação JWT
+    return;
   }
 
   const publicPaths = new Set<string>([
@@ -109,7 +136,6 @@ app.addHook("preHandler", async (request, reply) => {
   ]);
   const publicPathPrefixes = [
     "/api/operacional/solicitacoes-acesso/public/",
-    "/api/lara/",
   ];
 
   if (publicPaths.has(path) || publicPathPrefixes.some((prefix) => path.startsWith(prefix))) return;
@@ -173,8 +199,14 @@ app.addHook("onResponse", async (request, reply) => {
   }
 });
 
+const corsOrigin = (() => {
+  const configured = String(env.CORS_ALLOWED_ORIGIN ?? "").trim();
+  if (configured) return configured.split(",").map((o) => o.trim()).filter(Boolean);
+  return true; // dev fallback
+})();
+
 await app.register(cors, {
-  origin: true,
+  origin: corsOrigin,
   methods: ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   allowedHeaders: [
     "Content-Type",
@@ -183,8 +215,10 @@ await app.register(cors, {
     "x-lara-api-key",
     "x-bradesco-webhook-secret",
     "x-webhook-secret",
+    "x-lara-tenant-id",
   ],
   exposedHeaders: ["x-request-id"],
+  credentials: true,
 });
 
 let stopLaraDailySync: (() => void) | null = null;
@@ -223,6 +257,7 @@ await inspecoesRoutes(app);
 await sesmtRoutes(app);
 await assistenciaTerceirizadaRoutes(app);
 await laraRoutes(app);
+await uazapiRoutes(app);
 
 async function start() {
   await initOraclePool();
@@ -239,13 +274,17 @@ async function start() {
   await ensureLaraTables().catch((err) => {
     app.log.warn({ err }, "[lara] ensureLaraTables falhou — tabelas auxiliares serao criadas na proxima conexao bem-sucedida.");
   });
-  stopLaraDailySync = startLaraDailySyncScheduler(app.log);
-  stopLaraPromiseFollowup = startLaraPromiseFollowupScheduler(app.log);
-  stopFeedbackAggregator = startFeedbackAggregatorScheduler(app.log);
-  stopLearningEngine = startLearningEngineScheduler(app.log);
-  stopWaTemplateMonitor = startWhatsAppTemplateMonitor(app.log);
-  stopReguaScheduler = startLaraReguaScheduler(app.log);
-  stopBanditEngine = startBanditEngine();
+  if (env.LARA_SCHEDULERS_ENABLED) {
+    stopLaraDailySync = startLaraDailySyncScheduler(app.log);
+    stopLaraPromiseFollowup = startLaraPromiseFollowupScheduler(app.log);
+    stopFeedbackAggregator = startFeedbackAggregatorScheduler(app.log);
+    stopLearningEngine = startLearningEngineScheduler(app.log);
+    stopWaTemplateMonitor = startWhatsAppTemplateMonitor(app.log);
+    stopReguaScheduler = startLaraReguaScheduler(app.log);
+    stopBanditEngine = startBanditEngine();
+  } else {
+    app.log.warn("Schedulers Lara desativados por LARA_SCHEDULERS_ENABLED=false.");
+  }
   void initPropensityModel().catch(() => {});
   void initUpliftModel().catch(() => {});
   // Retreino noturno completo às 4h (além do ciclo do learningEngine às 3h)

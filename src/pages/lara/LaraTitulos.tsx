@@ -105,8 +105,8 @@ export default function LaraTitulos() {
   return (
     <LaraLayout>
       <PageHeader
-        title="Títulos / Duplicatas"
-        subtitle="Gestão operacional de títulos em aberto"
+        title="Títulos"
+        subtitle="Gestão de duplicatas, vencimentos, valores, status e ações de cobrança."
         actions={
           <Button
             size="sm"

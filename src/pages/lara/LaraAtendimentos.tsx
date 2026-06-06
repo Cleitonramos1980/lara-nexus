@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { LaraLayout } from '@/components/lara/LaraLayout';
 import { PageHeader } from '@/components/lara/PageHeader';
@@ -39,9 +39,9 @@ export default function LaraAtendimentos() {
     staleTime: 60_000,
   });
 
-  const atendimentos = atendimentosData ?? [];
-  const clientes = clientesData ?? [];
-  const titulos = titulosData ?? [];
+  const atendimentos = useMemo(() => atendimentosData ?? [], [atendimentosData]);
+  const clientes = useMemo(() => clientesData ?? [], [clientesData]);
+  const titulos = useMemo(() => titulosData ?? [], [titulosData]);
 
   useEffect(() => {
     if (!selected && atendimentos[0]?.id) {
@@ -60,7 +60,7 @@ export default function LaraAtendimentos() {
 
   return (
     <LaraLayout>
-      <PageHeader title="Atendimentos" subtitle="Painel operacional de atendimentos via WhatsApp" />
+      <PageHeader title="Atendimentos" subtitle="Acompanhe atendimentos automáticos, humanos e pendências operacionais." />
 
       <div className="grid grid-cols-1 lg:grid-cols-[380px_1fr] gap-4 h-[calc(100vh-180px)]">
         <div className="flex flex-col border rounded-lg bg-card overflow-hidden">
@@ -235,4 +235,3 @@ export default function LaraAtendimentos() {
     </LaraLayout>
   );
 }
-

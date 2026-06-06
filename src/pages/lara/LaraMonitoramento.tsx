@@ -90,7 +90,7 @@ export default function LaraMonitoramento() {
 
   return (
     <LaraLayout>
-      <PageHeader title="Monitoramento" subtitle="Torre de controle operacional da Lara" />
+      <PageHeader title="Monitoramento" subtitle="Saúde das integrações, filas, webhooks, IA, Oracle e serviços críticos." />
 
       <div className="mb-6">
         <h3 className="text-sm font-semibold text-foreground mb-3">Saude dos Componentes</h3>
@@ -117,7 +117,7 @@ export default function LaraMonitoramento() {
           <h3 className="text-sm font-semibold text-foreground mb-3">Eventos Criticos Recentes</h3>
           <div className="space-y-3">
             {alertas.length === 0 ? (
-              <AlertCard type="info" title="Sem alertas criticos" description="Nao ha eventos criticos recentes." />
+            <AlertCard type="info" title="Sem alertas críticos" description="Não há eventos críticos recentes." />
             ) : (
               alertas.map(item => (
                 <AlertCard
@@ -236,4 +236,3 @@ export default function LaraMonitoramento() {
     </LaraLayout>
   );
 }
-

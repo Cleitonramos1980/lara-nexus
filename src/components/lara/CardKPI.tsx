@@ -2,7 +2,8 @@ import { ReactNode } from 'react';
 import { cn } from '@/lib/utils';
 
 interface CardKPIProps {
-  label: string;
+  label?: string;
+  title?: string;
   value: string | number;
   icon?: ReactNode;
   trend?: { value: string; positive: boolean };
@@ -10,14 +11,16 @@ interface CardKPIProps {
   onClick?: () => void;
 }
 
-export function CardKPI({ label, value, icon, trend, className, onClick }: CardKPIProps) {
+export function CardKPI({ label, title, value, icon, trend, className, onClick }: CardKPIProps) {
+  const displayLabel = label ?? title ?? '';
+
   return (
     <div
       className={cn("rounded-lg border bg-card p-4 shadow-sm", onClick && "cursor-pointer hover:border-primary/40 hover:shadow-md transition-all", className)}
       onClick={onClick}
     >
       <div className="flex items-center justify-between">
-        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{label}</span>
+        <span className="text-xs font-medium text-muted-foreground uppercase tracking-wide">{displayLabel}</span>
         {icon && <span className="text-muted-foreground">{icon}</span>}
       </div>
       <div className="mt-2 flex items-end gap-2">

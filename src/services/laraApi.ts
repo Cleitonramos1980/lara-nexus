@@ -77,6 +77,8 @@ export type LaraDashboardResponse = {
     reguaAtiva: number;
     taxaResposta: number;
     valorRecuperado: number;
+    vencendoHoje?: number;
+    vencidoMaisTrintaDias?: number;
   };
   faixaAtraso: Array<{ faixa: string; valor: number }>;
   statusPie: Array<{ name: string; value: number }>;
@@ -605,6 +607,25 @@ export async function simularNegociacao(codcli: number, duplicatas?: string[]) {
       mensagem_oferta: string;
     }>;
   }>("/lara/negociacao/simular", { method: "POST", json: { codcli, duplicatas } });
+}
+
+export type NegociacaoHistoricoItem = {
+  id: string;
+  codcli: string;
+  wa_id: string;
+  filial?: string;
+  duplicata?: string;
+  valor_original?: number;
+  valor_negociado?: number;
+  tipo_negociacao?: string;
+  status_negociacao?: string;
+  origem?: string;
+  observacao?: string;
+  created_at: string;
+};
+
+export async function getNegociacaoHistorico(params?: { limit?: number; codcli?: number }) {
+  return laraRequest<NegociacaoHistoricoItem[]>(withQuery("/lara/negociacao/historico", params));
 }
 
 // ── Portal Self-Service ──────────────────────────────────────────────────────

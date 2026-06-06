@@ -31,7 +31,7 @@ export default function LaraReguaAtiva() {
 
   return (
     <LaraLayout>
-      <PageHeader title="Regua Ativa" subtitle="Monitoramento de performance da regua de cobranca" />
+      <PageHeader title="Régua Ativa" subtitle="Execuções, etapas, mensagens, bloqueios e resultados da automação." />
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         <CardKPI label="Total Elegivel" value={totalElegivel} icon={<Zap className="h-4 w-4" />} />
@@ -122,4 +122,3 @@ export default function LaraReguaAtiva() {
     </LaraLayout>
   );
 }
-

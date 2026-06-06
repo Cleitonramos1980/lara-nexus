@@ -12,6 +12,8 @@ import { laraService } from "./service.js";
 import { laraOperationalStore } from "./operationalStore.js";
 import { dateToIsoDate, dateToIsoDateTime, makeIdempotencyKey } from "./utils.js";
 import { isWhatsAppConfigured } from "./whatsappTemplateManager.js";
+import { isUazapiConfigured } from "./uazapiService.js";
+import { getPilotCodclis } from "../../config/env.js";
 
 type LoggerLike = {
   info?:  (p: Record<string, unknown>, msg?: string) => void;
@@ -107,7 +109,22 @@ async function executarRegua(logger?: LoggerLike): Promise<void> {
   const etapasAtivas = settings.etapas;
 
   // Carrega todos os clientes com títulos em aberto
-  const clientes = await laraService.listClientes({});
+  const todosClientes = await laraService.listClientes({});
+
+  // Modo piloto: restringe envio aos codcli autorizados
+  const pilotCodclis = getPilotCodclis();
+  const clientes = pilotCodclis.size > 0
+    ? todosClientes.filter((c) => pilotCodclis.has(Number(c.codcli)))
+    : todosClientes;
+
+  if (pilotCodclis.size > 0) {
+    logger?.info?.({
+      modulo: "regua-scheduler",
+      pilot_codclis: Array.from(pilotCodclis),
+      total_clientes: todosClientes.length,
+      clientes_autorizados: clientes.length,
+    }, "[PILOTO] Régua restrita — apenas codclis autorizados serão processados");
+  }
 
   let enviado = 0;
   let pulado  = 0;

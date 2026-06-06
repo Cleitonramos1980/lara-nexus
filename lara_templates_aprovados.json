@@ -1,0 +1,256 @@
+{
+  "gerado_em": "2026-06-02",
+  "waba_id": "1190731249535160",
+  "total_templates": 10,
+  "templates": [
+    {
+      "id": "4560153364208321",
+      "name": "lara_pix_disponivel",
+      "status": "APPROVED",
+      "category": "UTILITY",
+      "language": "pt_BR",
+      "quality_score": "UNKNOWN",
+      "parametros": [
+        "{{1}} = nome do cliente",
+        "{{2}} = numero do titulo",
+        "{{3}} = valor",
+        "{{4}} = horas de validade do PIX"
+      ],
+      "components": [
+        {
+          "type": "HEADER",
+          "format": "TEXT",
+          "text": "Pagamento via PIX"
+        },
+        {
+          "type": "BODY",
+          "text": "Prezado(a) {{1}},\n\nSeu codigo PIX para quitacao do titulo {{2}} no valor de {{3}} foi gerado e esta disponivel por {{4}} horas.\n\nResponda esta mensagem para receber o codigo PIX Copia e Cola e efetuar o pagamento.\n\nAtenciosamente,\nDepartamento Financeiro",
+          "exemplo": ["Joao Silva", "NF-2024-001234", "R$ 1.312,50", "24"]
+        },
+        {
+          "type": "FOOTER",
+          "text": "Para cancelar avisos, responda PARAR."
+        }
+      ]
+    },
+    {
+      "id": "1630603214661197",
+      "name": "lara_vencimento_d3",
+      "status": "APPROVED",
+      "category": "UTILITY",
+      "language": "pt_BR",
+      "quality_score": "UNKNOWN",
+      "parametros": [
+        "{{1}} = nome do cliente",
+        "{{2}} = numero do titulo",
+        "{{3}} = valor",
+        "{{4}} = data de vencimento"
+      ],
+      "components": [
+        {
+          "type": "HEADER",
+          "format": "TEXT",
+          "text": "Aviso de Vencimento"
+        },
+        {
+          "type": "BODY",
+          "text": "Prezado(a) {{1}},\n\nInformamos que o titulo {{2}} no valor de {{3}} vence em {{4}}.\n\nCaso o pagamento ja tenha sido realizado, desconsidere este aviso. Em caso de duvidas, responda esta mensagem.\n\nAtenciosamente,\nDepartamento Financeiro",
+          "exemplo": ["Joao Silva", "NF-2024-001234", "R$ 1.312,50", "15/05/2026"]
+        },
+        {
+          "type": "FOOTER",
+          "text": "Para cancelar avisos, responda PARAR."
+        }
+      ]
+    },
+    {
+      "id": "1317533600512331",
+      "name": "lara_aviso_vencimento_d0",
+      "status": "APPROVED",
+      "category": "UTILITY",
+      "language": "pt_BR",
+      "quality_score": "UNKNOWN",
+      "parametros": [
+        "{{1}} = nome do cliente",
+        "{{2}} = numero do titulo",
+        "{{3}} = valor"
+      ],
+      "components": [
+        {
+          "type": "HEADER",
+          "format": "TEXT",
+          "text": "Vencimento hoje - Lara IA"
+        },
+        {
+          "type": "BODY",
+          "text": "Prezado(a) {{1}},\n\nInformamos que o titulo {{2}} no valor de {{3}} vence hoje. Para evitar a cobranca de encargos de mora e juros, pedimos que efetue o pagamento ainda hoje.\n\nCaso precise do boleto atualizado ou do codigo PIX, responda esta mensagem e enviaremos imediatamente.\n\nAtenciosamente,\nEquipe de Cobrancas",
+          "exemplo": ["Joao Silva", "NF-2024-001234", "R$ 1.250,00"]
+        }
+      ]
+    },
+    {
+      "id": "2201996070545057",
+      "name": "lara_cobranca_d3",
+      "status": "APPROVED",
+      "category": "UTILITY",
+      "language": "pt_BR",
+      "quality_score": "UNKNOWN",
+      "parametros": [
+        "{{1}} = nome do cliente",
+        "{{2}} = numero do titulo",
+        "{{3}} = valor"
+      ],
+      "components": [
+        {
+          "type": "HEADER",
+          "format": "TEXT",
+          "text": "Titulo em atraso - Lara IA"
+        },
+        {
+          "type": "BODY",
+          "text": "Prezado(a) {{1}},\n\nConstatamos que o titulo {{2}} encontra-se vencido ha 3 dias. O valor atualizado com os encargos devidos e de {{3}}.\n\nSolicitamos que entre em contato conosco para regularizar esta pendencia e evitar restricoes em seu cadastro financeiro.\n\nResponda esta mensagem para receber opcoes de pagamento.\n\nAtenciosamente,\nEquipe de Cobrancas",
+          "exemplo": ["Joao Silva", "NF-2024-001234", "R$ 1.312,50"]
+        }
+      ]
+    },
+    {
+      "id": "979143471739877",
+      "name": "lara_cobranca_d7",
+      "status": "APPROVED",
+      "category": "UTILITY",
+      "language": "pt_BR",
+      "quality_score": "UNKNOWN",
+      "parametros": [
+        "{{1}} = nome do cliente",
+        "{{2}} = valor total em aberto"
+      ],
+      "components": [
+        {
+          "type": "HEADER",
+          "format": "TEXT",
+          "text": "Pendencia financeira - Lara IA"
+        },
+        {
+          "type": "BODY",
+          "text": "Prezado(a) {{1}},\n\nIdentificamos pendencias financeiras em seu cadastro com vencimento superior a 7 dias. O valor total das pendencias em aberto e de {{2}}.\n\nPara regularizar sua situacao e evitar restricoes ao credito, entre em contato conosco respondendo esta mensagem. Temos condicoes especiais de pagamento disponiveis.\n\nAtenciosamente,\nEquipe de Cobrancas",
+          "exemplo": ["Joao Silva", "R$ 3.750,00"]
+        }
+      ]
+    },
+    {
+      "id": "2877980689216655",
+      "name": "lara_cobranca_d15",
+      "status": "APPROVED",
+      "category": "UTILITY",
+      "language": "pt_BR",
+      "quality_score": "UNKNOWN",
+      "parametros": [
+        "{{1}} = nome do cliente",
+        "{{2}} = valor total em aberto"
+      ],
+      "components": [
+        {
+          "type": "BODY",
+          "text": "Prezado(a) {{1}},\n\nComunicamos que existem pendencias financeiras em seu cadastro com atraso superior a 15 dias, totalizando {{2}}.\n\nE muito importante que voce entre em contato conosco o mais breve possivel para regularizar sua situacao e evitar medidas adicionais de cobranca que possam afetar seu historico de credito.\n\nResponda esta mensagem ou acesse nosso portal para conhecer as opcoes disponiveis.\n\nAtenciosamente,\nEquipe de Cobrancas",
+          "exemplo": ["Joao Silva", "R$ 5.200,00"]
+        }
+      ]
+    },
+    {
+      "id": "785939491117625",
+      "name": "lara_cobranca_d30",
+      "status": "APPROVED",
+      "category": "UTILITY",
+      "language": "pt_BR",
+      "quality_score": "UNKNOWN",
+      "parametros": [
+        "{{1}} = nome do cliente",
+        "{{2}} = valor total em aberto"
+      ],
+      "components": [
+        {
+          "type": "BODY",
+          "text": "Prezado(a) {{1}},\n\nInformamos que existem pendencias financeiras em seu cadastro com atraso superior a 30 dias, totalizando {{2}}.\n\nA manutencao desta inadimplencia pode resultar na inclusao de seu nome em cadastros de restricao ao credito. Solicitamos urgencia na regularizacao desta situacao.\n\nPara negociar as melhores condicoes de pagamento, responda esta mensagem imediatamente.\n\nAtenciosamente,\nEquipe de Cobrancas",
+          "exemplo": ["Joao Silva", "R$ 7.800,00"]
+        }
+      ]
+    },
+    {
+      "id": "1281043824198204",
+      "name": "lara_pix_confirmado",
+      "status": "APPROVED",
+      "category": "UTILITY",
+      "language": "pt_BR",
+      "quality_score": "UNKNOWN",
+      "parametros": [
+        "{{1}} = nome do cliente",
+        "{{2}} = valor pago",
+        "{{3}} = numero do titulo"
+      ],
+      "components": [
+        {
+          "type": "HEADER",
+          "format": "TEXT",
+          "text": "Pagamento confirmado!"
+        },
+        {
+          "type": "BODY",
+          "text": "Prezado(a) {{1}},\n\nTemos o prazer de confirmar o recebimento do seu pagamento!\n\nValor recebido: {{2}}\nReferente ao titulo: {{3}}\n\nSua pendencia financeira foi regularizada com sucesso em nosso sistema. Agradecemos pela atencao e pelo pagamento realizado.\n\nAtenciosamente,\nEquipe de Cobrancas",
+          "exemplo": ["Joao Silva", "R$ 1.312,50", "NF-2024-001234"]
+        }
+      ]
+    },
+    {
+      "id": "1677524666921998",
+      "name": "lara_promessa_confirmada",
+      "status": "APPROVED",
+      "category": "UTILITY",
+      "language": "pt_BR",
+      "quality_score": "UNKNOWN",
+      "parametros": [
+        "{{1}} = nome do cliente",
+        "{{2}} = valor combinado",
+        "{{3}} = data acordada"
+      ],
+      "components": [
+        {
+          "type": "HEADER",
+          "format": "TEXT",
+          "text": "Promessa de pagamento registrada"
+        },
+        {
+          "type": "BODY",
+          "text": "Prezado(a) {{1}},\n\nSua promessa de pagamento foi registrada com sucesso em nosso sistema.\n\nValor combinado: {{2}}\nData acordada: {{3}}\n\nAguardamos a confirmacao do pagamento na data acordada. Caso nao seja possivel cumprir o prazo, entre em contato antecipadamente para que possamos encontrar a melhor solucao.\n\nAtenciosamente,\nEquipe de Cobrancas",
+          "exemplo": ["Joao Silva", "R$ 1.312,50", "25/05/2025"]
+        }
+      ]
+    },
+    {
+      "id": "843268022158209",
+      "name": "lara_boleto_gerado",
+      "status": "APPROVED",
+      "category": "UTILITY",
+      "language": "pt_BR",
+      "quality_score": "UNKNOWN",
+      "parametros": [
+        "{{1}} = nome do cliente",
+        "{{2}} = numero do titulo",
+        "{{3}} = valor",
+        "{{4}} = data de vencimento",
+        "{{5}} = linha digitavel do boleto"
+      ],
+      "components": [
+        {
+          "type": "HEADER",
+          "format": "TEXT",
+          "text": "Seu boleto esta disponivel"
+        },
+        {
+          "type": "BODY",
+          "text": "Prezado(a) {{1}},\n\nSeu boleto bancario foi gerado com sucesso!\n\nTitulo: {{2}}\nValor: {{3}}\nVencimento: {{4}}\n\nLinha digitavel:\n{{5}}\n\nPague pelo aplicativo do seu banco, internet banking, caixas eletronicos ou casas lotericas. Para mais informacoes, responda esta mensagem.",
+          "exemplo": ["Joao Silva", "NF-2024-001234", "R$ 1.312,50", "20/05/2025", "34191.09008 12345.678901 23456.789012 3 92340000131250"]
+        }
+      ]
+    }
+  ]
+}

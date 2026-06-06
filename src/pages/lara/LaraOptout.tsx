@@ -56,7 +56,7 @@ export default function LaraOptout() {
 
   return (
     <LaraLayout>
-      <PageHeader title="Opt-out / Compliance" subtitle="Controle de bloqueio e retomada de contato" />
+      <PageHeader title="Opt-out" subtitle="Bloqueios, preferências de comunicação e conformidade com LGPD." />
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         <CardKPI label="Opt-outs Ativos" value={ativos} icon={<ShieldBan className="h-4 w-4" />} />
@@ -108,4 +108,3 @@ export default function LaraOptout() {
     </LaraLayout>
   );
 }
-

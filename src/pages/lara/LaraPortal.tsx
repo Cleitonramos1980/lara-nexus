@@ -133,8 +133,8 @@ export default function LaraPortal() {
                 </div>
                 {dados.titulos && dados.titulos.length > 0 && (
                   <div className="portal-titulos">
-                    {dados.titulos.map((t) => (
-                      <div key={t.duplicata} className="portal-titulo-row">
+                    {dados.titulos.map((t, index) => (
+                      <div key={`${t.duplicata}-${t.vencimento}-${t.valor}-${index}`} className="portal-titulo-row">
                         <span>Título {t.duplicata}</span>
                         <span className={t.dias_atraso > 0 ? "portal-atrasado" : ""}>
                           {formatBRL(t.valor)}

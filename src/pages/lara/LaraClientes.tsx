@@ -39,7 +39,7 @@ export default function LaraClientes() {
     <LaraLayout>
       <PageHeader
         title="Clientes"
-        subtitle="Base de clientes da operação de cobrança"
+        subtitle="Consulte clientes, inadimplência, risco e situação financeira."
       />
       <FilterBar
         searchValue={search}

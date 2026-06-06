@@ -1,8 +1,17 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { randomInt } from "node:crypto";
 import { laraOperationalStore } from "../operationalStore.js";
 import { laraService } from "../service.js";
 import { makeIdempotencyKey } from "../utils.js";
+
+const testRunSeed = randomInt(100_000, 999_999);
+let testSequence = 0;
+
+function nextSeed(): number {
+  testSequence += 1;
+  return (testRunSeed * 100) + testSequence;
+}
 
 function uniqueCodcli(seed: number): string {
   return String(990000 + seed);
@@ -10,7 +19,7 @@ function uniqueCodcli(seed: number): string {
 
 async function seedClienteComTitulo(seed: number): Promise<{ codcli: string; waId: string; duplicata: string }> {
   const codcli = uniqueCodcli(seed);
-  const waId = `55919999${String(seed).padStart(4, "0")}`;
+  const waId = `55919${String(seed).slice(-8).padStart(8, "0")}`;
   const duplicata = `NF-TESTE-${seed}`;
 
   await laraOperationalStore.upsertClienteCache({
@@ -70,7 +79,7 @@ async function seedClienteComTitulo(seed: number): Promise<{ codcli: string; waI
 }
 
 test("processa opt-out com idempotência por event_id", async () => {
-  const seed = Date.now() % 100000;
+  const seed = nextSeed();
   const { waId } = await seedClienteComTitulo(seed);
   const eventId = `evt-optout-${seed}`;
 
@@ -97,7 +106,7 @@ test("processa opt-out com idempotência por event_id", async () => {
 });
 
 test("usa contexto recente para enviar boleto sem pedir identificação", async () => {
-  const seed = (Date.now() % 100000) + 1;
+  const seed = nextSeed();
   const { codcli, waId, duplicata } = await seedClienteComTitulo(seed);
 
   await laraOperationalStore.addMessageLog({
@@ -133,7 +142,7 @@ test("usa contexto recente para enviar boleto sem pedir identificação", async 
 });
 
 test("registra promessa de pagamento a partir da mensagem", async () => {
-  const seed = (Date.now() % 100000) + 2;
+  const seed = nextSeed();
   const { codcli, waId } = await seedClienteComTitulo(seed);
 
   const result = await laraService.processarMensagemInbound({

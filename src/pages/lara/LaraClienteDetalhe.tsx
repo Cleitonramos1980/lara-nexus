@@ -110,8 +110,8 @@ export default function LaraClienteDetalhe() {
       </div>
 
       <PageHeader
-        title={cliente.cliente}
-        subtitle={`codcli: ${cliente.codcli} · ${cliente.filial}`}
+        title="Cliente"
+        subtitle="Visão 360° do cliente, títulos, conversas, promessas, cases e risco."
         actions={
           <div className="flex gap-2 flex-wrap">
             <RiskBadge risk={cliente.risco} />
@@ -124,6 +124,11 @@ export default function LaraClienteDetalhe() {
           </div>
         }
       />
+
+      <div className="mb-4 rounded-lg border bg-card px-4 py-3">
+        <p className="text-sm font-semibold text-foreground">{cliente.cliente}</p>
+        <p className="text-xs text-muted-foreground">codcli: {cliente.codcli} · {cliente.filial}</p>
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-4 mb-6">
         <div className="lg:col-span-3 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">

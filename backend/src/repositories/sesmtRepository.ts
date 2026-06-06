@@ -1414,7 +1414,7 @@ export const sesmtRepo = {
     const list = store.favoritePresets as SesmtFavoritePreset[];
     const index = list.findIndex((item) => item.userId === input.userId && item.moduleKey === input.moduleKey);
 
-    if (Boolean(input.payload?.clear)) {
+    if (input.payload?.clear) {
       if (index >= 0) list.splice(index, 1);
       appendAudit("REMOVER", "SESMT_PRESET_FAVORITO", input.moduleKey, `Favorito removido em ${moduleDef.label}`, input.userName);
       return { favoritePreset: null };
@@ -2026,4 +2026,3 @@ export const sesmtRepo = {
     return ensureStore().acessosSensiveis;
   },
 };
-

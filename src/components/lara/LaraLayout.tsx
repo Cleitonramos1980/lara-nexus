@@ -15,12 +15,12 @@ export function LaraLayout({ children }: LaraLayoutProps) {
         <div className="flex min-w-0 flex-1 flex-col">
           <header className="flex h-12 items-center border-b bg-card px-4 shrink-0">
             <SidebarTrigger className="mr-3" />
-            <span className="text-xs font-medium text-muted-foreground">Lara | Cobranca Inteligente</span>
+            <span className="text-xs font-medium text-muted-foreground">Lara | Cobrança Inteligente</span>
             <div className="ml-auto">
               <FilialGlobalFilter />
             </div>
           </header>
-          <main className="flex-1 overflow-auto p-6">
+          <main className="flex-1 overflow-auto p-4 sm:p-6">
             {children}
           </main>
         </div>

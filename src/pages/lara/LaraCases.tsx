@@ -40,7 +40,7 @@ export default function LaraCases() {
 
   return (
     <LaraLayout>
-      <PageHeader title="Cases" subtitle="Historico operacional de acoes da cobranca" />
+      <PageHeader title="Cases" subtitle="Ocorrências, exceções, tratativas e escalonamentos de cobrança." />
       <FilterBar searchValue={search} onSearchChange={setSearch} searchPlaceholder="Buscar por cliente, codcli, acao..." />
 
       {filtered.length === 0 ? <EmptyState /> : (
@@ -79,4 +79,3 @@ export default function LaraCases() {
     </LaraLayout>
   );
 }
-
