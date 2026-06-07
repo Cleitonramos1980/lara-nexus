@@ -221,11 +221,10 @@ const negociacaoIntentPatterns = [
   /\bcondi[cç][aã]o especial\b/,
 ];
 
+// Exige contexto positivo explícito — evita falso-positivo em frases como "nao quero continuar"
 const optInIntentPatterns = [
-  /\bcontinuar\b/,
-  /\bvoltar\b/,
-  /\bquero receber\b/,
-  /\bpode (me )?enviar\b/,
+  /\bquero (continuar|voltar) (a )?(receber|receber mensagem)\b/,
+  /\bpode (me )?enviar (novamente|de novo|mensagens)\b/,
   /\breativar\b/,
   /\bme inclua\b/,
   /\bquero (receber )?(mensagem|mensagens|contato)\b/,
@@ -264,8 +263,9 @@ export function detectIntent(messageText: string): LaraIntent {
   const normalized = removeAccents(safeText(messageText).toLowerCase());
   if (!normalized) return "neutro";
   if (pagamentoConfirmadoPatterns.some((pattern) => pattern.test(normalized))) return "pagamento_confirmado";
-  if (optInIntentPatterns.some((pattern) => pattern.test(normalized))) return "optin";
+  // optout antes de optin: frases como "nao quero continuar" devem ser opt-out, não opt-in
   if (optOutIntentPatterns.some((pattern) => pattern.test(normalized))) return "optout";
+  if (optInIntentPatterns.some((pattern) => pattern.test(normalized))) return "optin";
   if (humanIntentPatterns.some((pattern) => pattern.test(normalized))) return "falar_humano";
   if (negociacaoIntentPatterns.some((pattern) => pattern.test(normalized))) return "solicitar_negociacao";
   if (pixIntentPatterns.some((pattern) => pattern.test(normalized))) return "solicitar_pix";

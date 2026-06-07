@@ -87,23 +87,38 @@ function calcClienteDispatchMinute(codcli: string | number, dateKey: string): nu
  * Aprende o horário preferido de resposta do cliente baseado no histórico de mensagens INBOUND.
  * Retorna a moda do horário de respostas anteriores (em horas), ou undefined se sem histórico.
  */
-async function getClienteLearnedHour(codcli: number): Promise<number | undefined> {
+/** Extrai a hora local (no fuso timeZone) de um timestamp ISO. */
+function extractLocalHour(isoTs: string, timeZone: string): number {
+  const d = new Date(isoTs);
+  if (!Number.isFinite(d.getTime())) return -1;
+  try {
+    const parts = new Intl.DateTimeFormat("en-CA", {
+      timeZone,
+      hour: "2-digit",
+      hour12: false,
+    }).formatToParts(d);
+    return Number(parts.find((p) => p.type === "hour")?.value ?? "-1");
+  } catch {
+    return -1;
+  }
+}
+
+async function getClienteLearnedHour(codcli: number, timeZone: string): Promise<number | undefined> {
   try {
     const msgs = await laraOperationalStore.listMessagesByCodcli(codcli);
+    // Considera apenas os últimos 90 dias para não arrastar histórico antigo
+    const ninetyDaysAgo = Date.now() - 90 * 24 * 60 * 60 * 1000;
     const inboundHours = msgs
-      .filter((m) => String(m.direction).toUpperCase() === "INBOUND" && m.received_at)
-      .map((m) => {
-        // Extrai a hora do campo received_at
-        const d = new Date(String(m.received_at));
-        if (!Number.isFinite(d.getTime())) return -1;
-        const hour = d.getUTCHours(); // usa UTC como referência consistente
-        return hour;
+      .filter((m) => {
+        if (String(m.direction).toUpperCase() !== "INBOUND" || !m.received_at) return false;
+        const ts = new Date(String(m.received_at)).getTime();
+        return Number.isFinite(ts) && ts >= ninetyDaysAgo;
       })
-      .filter((h) => h >= DISPATCH_HOUR_MIN && h <= DISPATCH_HOUR_MAX + 4); // tolera respostas até 15h
+      .map((m) => extractLocalHour(String(m.received_at), timeZone))
+      .filter((h) => h >= DISPATCH_HOUR_MIN && h <= DISPATCH_HOUR_MAX + 4);
 
-    if (inboundHours.length < 2) return undefined; // sem histórico suficiente
+    if (inboundHours.length < 2) return undefined;
 
-    // Conta frequência por hora e retorna a mais comum (moda)
     const freq = new Map<number, number>();
     for (const h of inboundHours) {
       freq.set(h, (freq.get(h) ?? 0) + 1);
@@ -179,6 +194,27 @@ function supressaoKey(codcli: string | number, etapa: string): string {
  * Cada cliente tem um horário único (hash + aprendizado), então o scheduler
  * roda o dia inteiro e vai disparando à medida que o horário de cada um chega.
  */
+/**
+ * Cache de learned hours por dia: evita N queries Oracle por tick.
+ * Chave: `${dateKey}` → Map<codcli, hour | undefined>
+ * Preenchido uma única vez no início de cada dia.
+ */
+const _learnedHourCache = new Map<string, Map<number, number | undefined>>();
+
+async function getLearnedHourCached(codcli: number, dateKey: string, timeZone: string): Promise<number | undefined> {
+  let dayCache = _learnedHourCache.get(dateKey);
+  if (!dayCache) {
+    // Primeiro acesso do dia: limpa dias anteriores e inicializa
+    _learnedHourCache.clear();
+    dayCache = new Map<number, number | undefined>();
+    _learnedHourCache.set(dateKey, dayCache);
+  }
+  if (dayCache.has(codcli)) return dayCache.get(codcli);
+  const h = await getClienteLearnedHour(codcli, timeZone);
+  dayCache.set(codcli, h);
+  return h;
+}
+
 async function executarReguaTick(
   currentHour: number,
   currentMinute: number,
@@ -193,6 +229,15 @@ async function executarReguaTick(
   const clientes = pilotCodclis.size > 0
     ? todosClientes.filter((c) => pilotCodclis.has(Number(c.codcli)))
     : todosClientes;
+
+  if (pilotCodclis.size > 0) {
+    logger?.info?.({
+      modulo: "regua-scheduler",
+      pilot_codclis: Array.from(pilotCodclis),
+      total_clientes: todosClientes.length,
+      clientes_autorizados: clientes.length,
+    }, "[PILOTO] Régua restrita — apenas codclis autorizados serão processados");
+  }
 
   let enviado = 0;
   let pulado  = 0;
@@ -216,9 +261,9 @@ async function executarReguaTick(
     const jaEnviado = await laraOperationalStore.findIntegrationByIdempotency(key).catch(() => null);
     if (jaEnviado) { pulado++; continue; }
 
-    // Timing inteligente: calcular horário alvo deste cliente
+    // Timing inteligente: learned hour cacheado por dia (1 query por cliente por DIA, não por tick)
     const codcliNum = Number(cliente.codcli);
-    const learnedHour = await getClienteLearnedHour(codcliNum);
+    const learnedHour = await getLearnedHourCached(codcliNum, dateKey, settings.timeZone);
     const targetHour   = calcClienteDispatchHour(cliente.codcli, dateKey, learnedHour);
     const targetMinute = calcClienteDispatchMinute(cliente.codcli, dateKey);
 
@@ -302,13 +347,14 @@ export function startLaraReguaScheduler(logger?: LoggerLike): () => void {
     // Janela de execução: só entre DISPATCH_HOUR_MIN e DISPATCH_HOUR_MAX+1
     if (parts.hour < DISPATCH_HOUR_MIN || parts.hour > DISPATCH_HOUR_MAX) return;
 
-    // Novo dia: reseta acumuladores
+    // Novo dia: salva sumário do dia anterior (sem exceção de "primeiro dia") e reseta acumuladores
     if (parts.dateKey !== lastTickDateKey) {
-      if (lastTickDateKey && (diaEnviado > 0 || diaErros > 0)) {
-        // Registra sumário do dia anterior
+      // Persiste o sumário sempre que havia atividade — inclusive no primeiro dia (lastTickDateKey = "")
+      if (diaEnviado > 0 || diaErros > 0) {
         await laraOperationalStore.addReguaExecucao({
           etapa:            Array.from(settings.etapas).join(","),
-          elegivel:         diaEnviado + diaPulado + diaOptout + diaSemWa,
+          // elegivel = apenas clientes que efetivamente chegaram ao step de decisão
+          elegivel:         diaEnviado + diaOptout + diaSemWa + diaErros,
           disparada:        diaEnviado,
           respondida:       0,
           convertida:       0,
@@ -316,7 +362,7 @@ export function startLaraReguaScheduler(logger?: LoggerLike): () => void {
           bloqueado_optout: diaOptout,
           valor_impactado:  0,
           status:           diaErros > 0 ? "concluido_com_erros" : "concluido",
-          detalhes_json:    { pulado: diaPulado, sem_wa: diaSemWa, timing: "inteligente_8_12h" },
+          detalhes_json:    { pulado: diaPulado, sem_wa: diaSemWa, timing: "inteligente_8_12h", date: lastTickDateKey || parts.dateKey },
         }).catch(() => {});
       }
       lastTickDateKey = parts.dateKey;

@@ -49,8 +49,9 @@ async function runFollowupCheck(logger?: LoggerLike): Promise<void> {
   const cutoffOld = new Date(now - FOLLOWUP_CUTOFF_MS); // mais de 12h → ignora
   const cutoffNew = new Date(now - FOLLOWUP_AFTER_MS);  // menos de 4h → ainda cedo
 
-  // Busca todas as mensagens recentes (limite 3000 para não pesar demais)
-  const allMsgs = await laraOperationalStore.listAllMessages(3000);
+  // Busca janela específica 4h-12h — limite maior garante cobertura em dias de alto volume
+  // (12h de mensagens a ~5 msg/cliente/dia × 500 clientes = 6000 msgs max, usamos 10000)
+  const allMsgs = await laraOperationalStore.listAllMessages(10_000);
 
   // Filtra apenas OUTBOUND da régua dentro da janela 4h–12h
   const candidatos = allMsgs.filter((m) => {
@@ -73,6 +74,10 @@ async function runFollowupCheck(logger?: LoggerLike): Promise<void> {
     if (!existing || ts > existing) inboundByWaId.set(m.wa_id, ts);
   }
 
+  // Carrega opt-outs UMA VEZ — evita N queries por candidato
+  const optoutsAtivos = await laraOperationalStore.listOptouts().catch(() => [] as Awaited<ReturnType<typeof laraOperationalStore.listOptouts>>);
+  const optoutWaIds = new Set(optoutsAtivos.filter((o) => o.ativo).map((o) => o.wa_id).filter(Boolean));
+
   let enviados = 0;
   let ignorados = 0;
 
@@ -92,14 +97,12 @@ async function runFollowupCheck(logger?: LoggerLike): Promise<void> {
     const sentAt = new Date(msg.sent_at || msg.created_at);
     const lastInbound = inboundByWaId.get(waId);
     if (lastInbound && lastInbound > sentAt) {
-      // Cliente já respondeu — não precisa de follow-up
       ignorados++;
       continue;
     }
 
-    // Verificar opt-out
-    const optout = await laraOperationalStore.findActiveOptoutByWaId(waId).catch(() => null);
-    if (optout?.ativo) { ignorados++; continue; }
+    // Verificar opt-out usando cache carregado antes do loop
+    if (optoutWaIds.has(waId)) { ignorados++; continue; }
 
     // Enviar follow-up
     const followupMsg = selectFollowupMsg(waId);

@@ -229,7 +229,6 @@ export function startLaraPromiseFollowupScheduler(logger?: LoggerLike): () => vo
 
         if (result === "enviado") {
           processed += 1;
-          // Registra no outcomeTracker: follow-up enviado, ainda aguardando confirmação de pagamento
           if (promessa.wa_id) {
             void resolveOutcome({
               wa_id: promessa.wa_id,
@@ -243,22 +242,26 @@ export function startLaraPromiseFollowupScheduler(logger?: LoggerLike): () => vo
           erros += 1;
         }
 
-        await laraOperationalStore.addIntegrationLog({
-          integracao: "lara-promessas",
-          tipo: "promessa-followup",
-          request_json: {
-            promessa_id: promessa.id,
-            codcli: Number(promessa.codcli ?? 0) || null,
-            data_prometida: dateToIsoDate(promessa.data_prometida),
-            duplicatas: promessa.duplicatas || "",
-          },
-          response_json: {
-            status: result,
-            dispatched_at: dateToIsoDateTime(new Date()),
-          },
-          status_operacao: result === "erro" ? "erro" : "processado",
-          idempotency_key: idempotencyKey,
-        });
+        // Só grava idempotency se processado com sucesso ou sem_wa (sem retry possível).
+        // Em caso de erro (falha de rede/API), NÃO grava — permite nova tentativa no próximo tick.
+        if (result !== "erro") {
+          await laraOperationalStore.addIntegrationLog({
+            integracao: "lara-promessas",
+            tipo: "promessa-followup",
+            request_json: {
+              promessa_id: promessa.id,
+              codcli: Number(promessa.codcli ?? 0) || null,
+              data_prometida: dateToIsoDate(promessa.data_prometida),
+              duplicatas: promessa.duplicatas || "",
+            },
+            response_json: {
+              status: result,
+              dispatched_at: dateToIsoDateTime(new Date()),
+            },
+            status_operacao: "processado",
+            idempotency_key: idempotencyKey,
+          });
+        }
       }
 
       // Identifica promessas já vencidas há 2+ dias e que ainda não foram pagas — marcada como não cumprida

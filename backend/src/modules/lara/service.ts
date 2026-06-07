@@ -4730,6 +4730,16 @@ export class LaraService {
         } else if (isWhatsAppConfigured()) {
           await sendTextMessage(waId, msgRetorno).catch(() => {});
         }
+        // Loga a mensagem de confirmação de reativação no histórico
+        await laraOperationalStore.addMessageLog({
+          wa_id: waId, codcli: input.codcli ?? null, cliente: "", telefone,
+          message_text: msgRetorno, direction: "OUTBOUND",
+          origem: "whatsapp-inbound", etapa: "", duplics: "",
+          valor_total: 0, payload_json: JSON.stringify({ acao: "optin_reativacao" }), status: "enviado",
+          sent_at: dateToIsoDateTime(new Date()), received_at: "", message_type: "texto",
+          operator_name: "Lara Automacao",
+          idempotency_key: makeIdempotencyKey([waId, "optin_reativacao", dateToIsoDate(new Date())]),
+        });
         await writeAudit("resposta_padrao", true, "Opt-in: cliente reativou contato.", input.codcli, { flow: "optin" });
         return {
           status: "ok",
@@ -4775,7 +4785,7 @@ export class LaraService {
         operator_name: "Lara Automacao",
         idempotency_key: makeIdempotencyKey([waId, "pagamento_confirmado", messageText.slice(0, 40)]),
       });
-      await writeAudit("registrar_promessa", true, "Cliente confirmou pagamento — aguardando validacao.", codcliPago ?? undefined, { flow: "pagamento_confirmado" });
+      await writeAudit("resposta_padrao", true, "Cliente confirmou pagamento — aguardando validacao.", codcliPago ?? undefined, { flow: "pagamento_confirmado" });
       return {
         status: "ok",
         mensagem: msgAgradecimento,

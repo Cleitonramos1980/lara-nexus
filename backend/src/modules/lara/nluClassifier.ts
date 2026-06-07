@@ -281,10 +281,14 @@ function mapOpenAiIntent(rawIntent: unknown): LaraIntent | null {
 
   if (normalized === "solicitar_boleto" || normalized === "boleto") return "solicitar_boleto";
   if (normalized === "solicitar_pix" || normalized === "pix") return "solicitar_pix";
+  if (normalized === "solicitar_pagamento" || normalized === "pagamento") return "solicitar_pagamento";
+  if (normalized === "solicitar_negociacao" || normalized === "negociacao") return "solicitar_negociacao";
   if (normalized === "confirmacao_contexto" || normalized === "confirmacao") return "confirmacao_contexto";
   if (normalized === "promessa_pagamento" || normalized === "promessa") return "promessa_pagamento";
+  if (normalized === "pagamento_confirmado" || normalized === "pago" || normalized === "paguei") return "pagamento_confirmado";
   if (normalized === "falar_humano" || normalized === "humano") return "falar_humano";
   if (normalized === "optout" || normalized === "opt_out" || normalized === "opt-out") return "optout";
+  if (normalized === "optin" || normalized === "opt_in" || normalized === "opt-in") return "optin";
   if (normalized === "neutro") return "neutro";
   return null;
 }
