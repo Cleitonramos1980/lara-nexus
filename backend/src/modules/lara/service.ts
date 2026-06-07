@@ -807,7 +807,7 @@ function buildPixCopiaCola(input: {
 }): string {
   const nome = input.nomeCliente
     .normalize("NFD")
-    .replace(/[Ì€-Í¯]/g, "")
+    .replace(/[̀-ͯ]/g, "")
     .replace(/[^A-Za-z0-9 ]/g, " ")
     .replace(/\s+/g, " ")
     .trim()
@@ -815,7 +815,7 @@ function buildPixCopiaCola(input: {
     .slice(0, 25);
   const cidade = (input.cidade ?? "SAO PAULO")
     .normalize("NFD")
-    .replace(/[Ì€-Í¯]/g, "")
+    .replace(/[̀-ͯ]/g, "")
     .replace(/[^A-Za-z0-9 ]/g, " ")
     .replace(/\s+/g, " ")
     .trim()
@@ -5948,21 +5948,39 @@ export class LaraService {
           }
           const primeiro = pendentes[0];
           const clienteOracle = await getClientByCodcli(primeiro.codcli).catch(() => null);
+
+          // Prioriza wa_id da cobrança PIX; fallback para telefone do Oracle
+          const waIdCobranca = String((primeiro as Record<string, unknown>).wa_id || "").trim();
           const telefone = String(clienteOracle?.TELEFONE || "").trim();
-          if (telefone) {
+          const destinoWaId = waIdCobranca
+            ? normalizeWaId(waIdCobranca)
+            : telefone ? normalizeWaId(telefone) : "";
+
+          if (destinoWaId) {
             const valorFmt = (normalized.valor > 0 ? normalized.valor : valorTotal)
               .toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
             const nomeCliente = String(clienteOracle?.CLIENTE || "cliente").split(" ")[0];
+            const duplicatasStr = pendentes.map((c) => c.duplicata).join(", ");
+            const msgConfirmacao = `Pagamento PIX de ${valorFmt} confirmado com sucesso! Obrigado, ${nomeCliente}. Seu(s) titulo(s) ${duplicatasStr} foi(foram) baixado(s). Qualquer duvida, estamos aqui!`;
+
+            // Envia a mensagem de confirmação no WhatsApp
+            if (isUazapiConfigured()) {
+              await uazapiSendText(destinoWaId, msgConfirmacao).catch(() => {});
+            } else if (isWhatsAppConfigured()) {
+              await sendTextMessage(destinoWaId, msgConfirmacao).catch(() => {});
+            }
+
+            // Registra no histórico
             await laraOperationalStore.addMessageLog({
-              wa_id: normalizeWaId(telefone),
+              wa_id: destinoWaId,
               codcli: primeiro.codcli,
               cliente: String(clienteOracle?.CLIENTE || ""),
               telefone,
-              message_text: `âœ… Pagamento PIX de ${valorFmt} confirmado! Obrigado, ${nomeCliente}. Seu(s) titulo(s) foi(foram) baixado(s).`,
+              message_text: msgConfirmacao,
               direction: "OUTBOUND",
               origem: "webhook-pix-confirmado",
               etapa: "",
-              duplics: pendentes.map((c) => c.duplicata).join(", "),
+              duplics: duplicatasStr,
               valor_total: normalized.valor > 0 ? normalized.valor : valorTotal,
               payload_json: JSON.stringify({ acao: "comprovante_pix", txid: normalized.txid }),
               status: "enviado",
@@ -6115,33 +6133,46 @@ export class LaraService {
             settlementExecuted = baixa.rows_updated > 0;
             baixaResult = baixa as unknown as Record<string, unknown>;
 
-            // Enfileira comprovante via WhatsApp buscando o telefone do cliente
+            // Envia comprovante via WhatsApp apos baixa automatica
             if (settlementExecuted) {
               const clienteOracle = await getClientByCodcli(Number(match.CODCLI)).catch(() => null);
-              const telefone = String(clienteOracle?.TELEFONE || "").trim();
+              const telefone = String(clienteOracle?.TELEFONE || '').trim();
               if (telefone) {
                 const valorFmt = (normalized.valor > 0 ? normalized.valor : valorTitulo)
-                  .toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-                await laraOperationalStore.addIntegrationLog({
-                  integracao: "pix-comprovante-whatsapp",
-                  tipo: "pendente-envio",
-                  request_json: {
-                    telefone,
-                    codcli: Number(match.CODCLI),
-                    duplicata: String(match.DUPLICATA || ""),
-                    valor: normalized.valor > 0 ? normalized.valor : valorTitulo,
-                    txid: normalized.txid,
-                    endToEndId: normalized.endToEndId,
-                    mensagem: `âœ… Pagamento PIX de ${valorFmt} confirmado! Obrigado, ${String(match.CLIENTE || "cliente").split(" ")[0]}. Seu tÃ­tulo foi baixado. Qualquer dÃºvida estamos Ã  disposiÃ§Ã£o.`,
-                  },
-                  response_json: {},
-                  status_operacao: "pendente",
-                  idempotency_key: makeIdempotencyKey(["comprovante", normalized.txid, normalized.endToEndId]),
-                  correlation_id: input.correlation_id,
+                  .toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+                const nomeCliente = String(match.CLIENTE || clienteOracle?.CLIENTE || 'cliente').split(' ')[0];
+                const duplicataStr = String(match.DUPLICATA || '');
+                const msgConfirmacao = `Pagamento PIX de ${valorFmt} confirmado com sucesso! Obrigado, ${nomeCliente}. Seu titulo ${duplicataStr} foi baixado. Qualquer duvida, estamos aqui!`;
+                const destinoWaId = normalizeWaId(telefone);
+
+                if (isUazapiConfigured()) {
+                  await uazapiSendText(destinoWaId, msgConfirmacao).catch(() => {});
+                } else if (isWhatsAppConfigured()) {
+                  await sendTextMessage(destinoWaId, msgConfirmacao).catch(() => {});
+                }
+
+                await laraOperationalStore.addMessageLog({
+                  wa_id: destinoWaId,
+                  codcli: Number(match.CODCLI),
+                  cliente: String(match.CLIENTE || ''),
+                  telefone,
+                  message_text: msgConfirmacao,
+                  direction: 'OUTBOUND',
+                  origem: 'webhook-pix-confirmado',
+                  etapa: '',
+                  duplics: duplicataStr,
+                  valor_total: normalized.valor > 0 ? normalized.valor : valorTitulo,
+                  payload_json: JSON.stringify({ acao: 'comprovante_pix', txid: normalized.txid }),
+                  status: 'enviado',
+                  sent_at: dateToIsoDateTime(new Date()),
+                  received_at: '',
+                  message_type: 'texto',
+                  operator_name: 'Lara Automacao',
+                  idempotency_key: makeIdempotencyKey(['comprovante', normalized.txid, normalized.endToEndId]),
                 });
               }
             }
-          } catch (err) {
+} catch (err) {
             settlementError = err instanceof Error ? err.message : String(err);
           }
         }
