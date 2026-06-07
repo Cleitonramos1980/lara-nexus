@@ -2980,6 +2980,22 @@ export class LaraService {
       },
       fallback_base: fallbackMessage,
       instrucoes_para_este_turno: instrucoesPorEstagio[estagio] ?? instrucoesPorEstagio.conducao,
+      // Políticas de negociação: informa ao LLM os limites reais da empresa
+      // Só incluídas quando a ação é negociar — evita confusão em outros contextos
+      ...(input.action === "negociar" || input.action === "negociar_autonomamente" ? (() => {
+        try {
+          const pol = selecionarPoliticaPorEtapa(input.cliente.etapa_regua, POLITICAS_PADRAO);
+          if (!pol) return {};
+          return {
+            politicas_negociacao: {
+              desconto_maximo_pct: pol.desconto_maximo_pct,
+              parcelas_maximas: pol.parcelas_maximas,
+              entrada_minima_pct: pol.entrada_minima_pct,
+              instrucao: `Voce pode oferecer ate ${pol.desconto_maximo_pct}% de desconto e parcelamento em ate ${pol.parcelas_maximas}x com entrada minima de ${pol.entrada_minima_pct}%. NAO ultrapasse esses limites. Nao invente condicoes que nao estejam aqui.`,
+            },
+          };
+        } catch { return {}; }
+      })() : {}),
       ...(input.conversationSummary ? { resumo_semantico_da_conversa: input.conversationSummary } : {}),
       ...(input.contextualInsights ? {
         refinamento_contextual: {

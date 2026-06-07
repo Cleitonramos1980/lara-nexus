@@ -116,6 +116,19 @@ async function dispatchPaymentForPromise(
     return "sem_wa";
   }
 
+  // Opt-out: não enviar para clientes que pediram pausa (mesmo com promessa ativa)
+  if (promessa.wa_id) {
+    const optout = await laraOperationalStore.findActiveOptoutByWaId(promessa.wa_id).catch(() => null);
+    if (optout?.ativo) {
+      logger?.info?.({
+        modulo: "lara-promessa-followup",
+        promessa_id: promessa.id,
+        wa_id: promessa.wa_id,
+      }, "Follow-up de promessa bloqueado — opt-out ativo para este wa_id");
+      return "sem_wa";
+    }
+  }
+
   const cliente = codcli > 0 ? await laraService.getCliente(codcli) : null;
   const clienteNome = cliente?.cliente || promessa.cliente || "cliente";
   const waId = promessa.wa_id || cliente?.wa_id || "";
@@ -296,18 +309,23 @@ export function startLaraPromiseFollowupScheduler(logger?: LoggerLike): () => vo
         }
       }
 
-      // Promessas vencidas ontem (2º dia sem pagamento) → marca como não cumprida
-      // Lógica: se a promessa era para hoje ou antes, e o follow-up já foi enviado,
-      // então o cliente não pagou → nao_cumprida
+      // Promessas vencidas e não pagas → marca como nao_cumprida
+      // Dois casos:
+      //   a) Status "pendente" ou "aberto" e data vencida → nao_cumprida imediato
+      //   b) Status "followup_realizado" e data vencida ontem ou antes →
+      //      o follow-up foi enviado mas o cliente não pagou → nao_cumprida
       const yesterday = new Date(Date.now() - 1 * 24 * 60 * 60 * 1000);
       const yesterdayStr = dateToIsoDate(yesterday);
       const allOpenPromessas = await laraOperationalStore.listPromessas();
       for (const p of allOpenPromessas) {
-        if (!isOpenPromiseStatus(p.status)) continue;
-        if (p.status === "followup_realizado") continue; // já foi trabalhada hoje — aguarda confirmação
+        if (!isOpenPromiseStatus(p.status) && p.status !== "followup_realizado") continue;
         const dataPrometida = dateToIsoDate(p.data_prometida);
-        if (!dataPrometida || dataPrometida > yesterdayStr) continue;
-        // Promessa vencida ontem ou antes, sem confirmação → não cumprida
+        if (!dataPrometida) continue;
+        // Caso a: pendente/aberto com data vencida → nao_cumprida
+        const isFollowup = p.status === "followup_realizado";
+        const cutoff = isFollowup ? yesterdayStr : dateToIsoDate(new Date());
+        if (dataPrometida > cutoff) continue;
+        // Promessa vencida sem pagamento confirmado → não cumprida
         if (p.wa_id) {
           void markPromiseBroken(p.wa_id, p.id).catch(() => {});
         }

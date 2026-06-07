@@ -12,7 +12,7 @@
  */
 
 import { laraOperationalStore } from "./operationalStore.js";
-import { listRecentOutcomes } from "./outcomeTracker.js";
+import { listRecentOutcomes, markAsIgnored } from "./outcomeTracker.js";
 import { dateToIsoDateTime } from "./utils.js";
 
 export type FeedbackInsight = {
@@ -295,6 +295,22 @@ export function startFeedbackAggregatorScheduler(logger?: LoggerLike): () => voi
 
     lastRunDate = today;
     try {
+      // Resolve outcomes não respondidos após 24h — define resolved_at nos registros "ignorou"
+      const pendingOutcomes = await listRecentOutcomes(2).catch(() => []);
+      const cutoff24h = Date.now() - 24 * 60 * 60 * 1000;
+      const waIdsIgnorados = [...new Set(
+        pendingOutcomes
+          .filter((o) => !o.resolved_at && new Date(o.created_at).getTime() < cutoff24h)
+          .map((o) => o.wa_id)
+          .filter(Boolean),
+      )];
+      for (const waId of waIdsIgnorados) {
+        await markAsIgnored(waId, 24).catch(() => {});
+      }
+      if (waIdsIgnorados.length > 0) {
+        logger?.info?.({ modulo: "feedback-aggregator", ignorados_resolvidos: waIdsIgnorados.length }, "Outcomes ignorados marcados como resolvidos");
+      }
+
       const insight = await aggregateFeedback();
       logger?.info?.(
         {
