@@ -5364,6 +5364,9 @@ export class LaraService {
     // Sempre eleva confianÃ§a quando o tÃ­tulo estÃ¡ explÃ­cito na mensagem â€” o intent Ã© inequÃ­voco
     const nbaConfidence = hasMentionedTitulo || shouldSendByContext ? 0.95 : nlu.confidence;
 
+    // Analisa sentimento da mensagem atual para alimentar E1 e E2 do NBA
+    const sentimentoAtual = analyzeSentiment(messageText);
+
     const nba = await chooseNextBestAction({
       intent: nbaIntent,
       confidence: nbaConfidence,
@@ -5374,6 +5377,7 @@ export class LaraService {
       mensagensOutboundUltimas24h: outbound24h,
       promessasEmAberto: promisesOpen,
       initiatedByCustomer: true,
+      sentiment: sentimentoAtual,
     });
 
     // Resolve resumo semÃ¢ntico com timeout curto (aproveita cache se jÃ¡ aquecido)
@@ -5655,17 +5659,53 @@ export class LaraService {
         etapa: cliente.etapa_regua,
         duplicatas: duplicatas.join(", "),
         valor_total: total,
-        detalhe: nba.reason,
+        detalhe: `[${nba.prioridade?.toUpperCase() ?? "NORMAL"}] ${nba.reason}. Intent: ${intent}. Contexto: ${nba.contexto ?? "geral"}.`,
         origem: "whatsapp-inbound",
         responsavel: "Lara Automacao",
+        status: nba.prioridade === "critica" ? "urgente" : "pendente",
       });
       await writeAudit("escalar_humano", true, nba.reason, Number(cliente.codcli), {
         confidence: nlu.confidence,
         intent,
+        prioridade: nba.prioridade,
+        contexto: nba.contexto,
+        sentiment_critico: sentimentoAtual.requer_escalacao_imediata,
+        keywords_detectadas: sentimentoAtual.keywords_detectadas.slice(0, 5),
       });
+
+      // Mensagem diferenciada por prioridade — evita resposta corporativa fria em emergências
+      const nomeCliente = cliente.cliente.split(" ")[0];
+      let msgEscalacao: string;
+      if (nba.prioridade === "critica" && sentimentoAtual.requer_escalacao_imediata) {
+        const isHealthMental = sentimentoAtual.keywords_detectadas.some((k) =>
+          ["suicid", "quero morrer", "me matar", "nao aguento", "acabar com tudo"].some((t) => k.includes(t))
+        );
+        if (isHealthMental) {
+          msgEscalacao = `${nomeCliente}, estou aqui. Percebo que voce esta passando por um momento muito dificil. Nossa equipe vai entrar em contato com voce agora. Se precisar de apoio imediato, o CVV atende 24h pelo numero 188 ou pelo chat em cvv.org.br.`;
+        } else {
+          msgEscalacao = `${nomeCliente}, entendi a situacao. Vou acionar nossa equipe agora para te ajudar. Um especialista entrara em contato em breve.`;
+        }
+      } else if (nba.prioridade === "alta") {
+        if (nba.contexto === "stress_etapa_avancada") {
+          msgEscalacao = `${nomeCliente}, entendo que e uma situacao dificil. Vou transferir para um de nossos especialistas que pode encontrar a melhor solucao para voce.`;
+        } else if (intent === "falar_humano") {
+          msgEscalacao = `Claro, ${nomeCliente}! Vou te encaminhar para um atendente agora. Em breve um especialista entrara em contato.`;
+        } else {
+          msgEscalacao = `${nomeCliente}, vou transferir seu atendimento para nossa equipe especializada. Eles entram em contato em breve.`;
+        }
+      } else {
+        msgEscalacao = `Entendido, ${nomeCliente}. Vou direcionar para nossa equipe de atendimento. Em breve alguem entrara em contato.`;
+      }
+
+      if (isUazapiConfigured()) {
+        await uazapiSendText(waId, msgEscalacao).catch(() => {});
+      } else if (isWhatsAppConfigured()) {
+        await sendTextMessage(waId, msgEscalacao).catch(() => {});
+      }
+
       return {
         status: "ok",
-        mensagem: "Tudo certo. Vou encaminhar para atendimento humano.",
+        mensagem: msgEscalacao,
         acao: "escalar_humano",
         wa_id: waId,
         codcli: cliente.codcli,
