@@ -136,6 +136,14 @@ let rateLimitCache = {
   valuePerMinute: 60,
 };
 
+// Limpa entradas expiradas a cada 10 min para evitar crescimento ilimitado
+setInterval(() => {
+  const cutoff = Date.now() - 120_000; // entradas com mais de 2 min são removidas
+  for (const [key, entry] of webhookRateLimitStore) {
+    if (entry.windowStart < cutoff) webhookRateLimitStore.delete(key);
+  }
+}, 10 * 60 * 1000).unref();
+
 async function getRateLimitPerMinute(): Promise<number> {
   const now = Date.now();
   if (now - rateLimitCache.updatedAt < 30_000) {

@@ -21,12 +21,10 @@ type LoggerLike = {
 };
 
 type ReguaSettings = {
-  enabled:    boolean;
-  hour:       number;
-  minute:     number;
-  timeZone:   string;
-  delayMs:    number; // pausa entre envios (ms) — evita throttle da Meta
-  etapas:     Set<string>;
+  enabled:  boolean;
+  timeZone: string;
+  delayMs:  number; // pausa entre envios (ms) — evita throttle da Meta
+  etapas:   Set<string>;
 };
 
 // Janela de supressão por etapa: não reenvia para o mesmo cliente na mesma etapa
@@ -173,8 +171,6 @@ async function loadSettings(): Promise<ReguaSettings> {
 
   return {
     enabled:  parseBool(m.get("LARA_REGUA_ATIVO"), true),
-    hour:     parseInt2(m.get("LARA_REGUA_HORA"),   8,  0, 23),
-    minute:   parseInt2(m.get("LARA_REGUA_MINUTO"), 0,  0, 59),
     timeZone: m.get("LARA_SYNC_DAILY_TIMEZONE") ?? "America/Sao_Paulo",
     delayMs:  parseInt2(m.get("LARA_REGUA_DELAY_MS"), 200, 0, 5000),
     etapas,

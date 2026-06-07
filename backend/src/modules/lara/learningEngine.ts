@@ -72,7 +72,7 @@ const FAILURE_OUTCOMES: Set<OutcomeType> = new Set([
 ]);
 
 function isResolved(r: OutcomeRecord): boolean {
-  return r.resolved_at !== null && r.outcome !== "ignorou" || r.outcome !== "ignorou";
+  return r.resolved_at !== null && r.outcome !== "ignorou";
 }
 
 function successScore(r: OutcomeRecord): number {
@@ -322,26 +322,43 @@ export function startLearningEngineScheduler(logger?: LoggerLike): () => void {
   let stopped = false;
   let lastRunDate = "";
 
+  const runCycle = async (reason: "scheduled" | "bootstrap") => {
+    if (stopped) return;
+    const today = new Date().toISOString().slice(0, 10);
+    if (lastRunDate === today && reason !== "bootstrap") return;
+    lastRunDate = today;
+    try {
+      const report = await runLearningCycle();
+      logger?.info?.({ modulo: "learning-engine", reason, ...report }, "Ciclo de aprendizado concluído");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      logger?.error?.({ modulo: "learning-engine", reason, erro: msg }, "Erro no ciclo de aprendizado");
+    }
+  };
+
   const runTick = async () => {
     if (stopped) return;
     const today = new Date().toISOString().slice(0, 10);
     if (lastRunDate === today) return;
-
     // Roda entre 3h e 4h da manhã (janela de baixo tráfego)
     const hour = new Date().getHours();
     if (hour < 3 || hour > 4) return;
-
-    lastRunDate = today;
-    try {
-      const report = await runLearningCycle();
-      logger?.info?.({ modulo: "learning-engine", ...report }, "Ciclo de aprendizado concluído");
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      logger?.error?.({ modulo: "learning-engine", erro: msg }, "Erro no ciclo de aprendizado");
-    }
+    await runCycle("scheduled");
   };
 
-  void runTick();
+  // Bootstrap: roda imediatamente se não há padrões aprendidos ainda
+  // Garante que o learningEngine tem dados assim que o servidor sobe
+  setTimeout(async () => {
+    if (stopped) return;
+    try {
+      const existing = await laraOperationalStore.listLearnedPatterns().catch(() => []);
+      if (existing.length === 0) {
+        logger?.info?.({ modulo: "learning-engine" }, "Bootstrap: nenhum padrão encontrado — executando ciclo inicial de aprendizado");
+        await runCycle("bootstrap");
+      }
+    } catch { /* fallback silencioso */ }
+  }, 2 * 60 * 1000); // aguarda 2 min após startup para DB estar disponível
+
   const timer = setInterval(() => void runTick(), TICK_MS);
   timer.unref?.();
   return () => { stopped = true; clearInterval(timer); };

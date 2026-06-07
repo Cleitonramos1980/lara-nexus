@@ -206,11 +206,48 @@ export async function updateBanditArm(
   void laraOperationalStore.upsertBanditArm(updated).catch(() => {});
 }
 
+// Etapas e riscos para seed dos arms iniciais
+const ETAPAS_SEED = ["d-3", "d0", "d+3", "d+7", "d+15", "d+30"];
+const RISCOS_SEED  = ["baixo", "medio", "alto", "critico"];
+const ACOES_SEED   = ["enviar_pix", "enviar_boleto", "apresentar_opcoes_pagamento", "negociar_autonomamente", "registrar_promessa"];
+const HORAS_SEED   = [0, 1, 2, 3]; // blocos: madrugada, manhã, tarde, noite
+
 /**
- * Inicializa o engine: carrega estado do DB e inicia sync periódico.
+ * Cria arms com prior Beta(1,1) para todos os contextos possíveis
+ * se o DB estiver vazio. Permite ao Thompson Sampling iniciar exploração
+ * imediatamente sem esperar dados reais.
+ */
+async function seedDefaultArmsIfEmpty(): Promise<void> {
+  try {
+    const existing = await laraOperationalStore.listBanditArms().catch(() => []);
+    if (existing.length > 0) return; // já tem dados — não sobrescreve
+
+    const now = dateToIsoDateTime(new Date());
+    const arms: BanditArm[] = [];
+    for (const etapa of ETAPAS_SEED) {
+      for (const risco of RISCOS_SEED) {
+        for (const horaB of HORAS_SEED) {
+          const patternKey = makeBanditPatternKey(etapa, risco, horaB);
+          for (const action of ACOES_SEED) {
+            arms.push({ pattern_key: patternKey, action, alpha: ALPHA_PRIOR, beta_param: BETA_PRIOR, last_updated: now });
+          }
+        }
+      }
+    }
+    // Persiste em lote — sem await para não bloquear startup
+    for (const arm of arms) {
+      void laraOperationalStore.upsertBanditArm(arm).catch(() => {});
+    }
+  } catch { /* fallback silencioso */ }
+}
+
+/**
+ * Inicializa o engine: carrega estado do DB, seed se vazio, inicia sync periódico.
  */
 export function startBanditEngine(): () => void {
   void syncFromDb();
+  // Seed após 3 min para não competir com o startup do Oracle pool
+  setTimeout(() => void seedDefaultArmsIfEmpty(), 3 * 60 * 1000);
   const timer = setInterval(() => void syncFromDb(), SYNC_INTERVAL_MS);
   timer.unref?.();
   return () => clearInterval(timer);
