@@ -339,10 +339,14 @@ export async function chooseNextBestAction(input: NextBestActionInput): Promise<
     };
   }
 
-  // ── 14. Default ──────────────────────────────────────────────────────────
+  // ── 14. Default: tudo que não foi claramente entendido → escala para humano ──
+  // Regra: nunca deixar o cliente sem atendimento real quando a intenção não
+  // é inequívoca. É preferível escalar uma vez a mais do que deixar um cliente
+  // em crise, com dúvida ou em disputa receber uma resposta automática genérica.
   return {
-    action: "resposta_padrao",
-    reason: "Fluxo padrão de cobrança orientado por etapa e intenção.",
+    action: "escalar_humano",
+    reason: "Intenção não identificada com clareza suficiente para resposta automática. Escalação preventiva.",
     prioridade: "normal",
+    contexto: "intencao_nao_identificada",
   };
 }

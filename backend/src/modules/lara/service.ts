@@ -5693,6 +5693,8 @@ export class LaraService {
         } else {
           msgEscalacao = `${nomeCliente}, vou transferir seu atendimento para nossa equipe especializada. Eles entram em contato em breve.`;
         }
+      } else if (nba.contexto === "intencao_nao_identificada") {
+        msgEscalacao = `Ola, ${nomeCliente}! Nao consegui identificar exatamente o que voce precisa. Para garantir o melhor atendimento, vou direcionar para um de nossos atendentes. Se preferir, pode me contar com suas proprias palavras o que esta acontecendo!`;
       } else {
         msgEscalacao = `Entendido, ${nomeCliente}. Vou direcionar para nossa equipe de atendimento. Em breve alguem entrara em contato.`;
       }
