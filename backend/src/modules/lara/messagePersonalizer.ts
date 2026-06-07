@@ -82,7 +82,7 @@ function onFailure(nowMs: number): void {
 
 function saudacaoHoraria(): string {
   const hora = Number(
-    new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Sao_Paulo", hour: "numeric", hour12: false })
+    new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Manaus", hour: "numeric", hour12: false })
       .format(new Date()),
   );
   if (hora >= 5 && hora < 12) return "Bom dia";

@@ -171,7 +171,7 @@ async function loadSettings(): Promise<ReguaSettings> {
 
   return {
     enabled:  parseBool(m.get("LARA_REGUA_ATIVO"), true),
-    timeZone: m.get("LARA_SYNC_DAILY_TIMEZONE") ?? "America/Sao_Paulo",
+    timeZone: m.get("LARA_SYNC_DAILY_TIMEZONE") ?? "America/Manaus",
     delayMs:  parseInt2(m.get("LARA_REGUA_DELAY_MS"), 200, 0, 5000),
     etapas,
   };

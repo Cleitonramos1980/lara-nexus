@@ -62,7 +62,7 @@ const envSchema = z.object({
   LARA_SYNC_DAILY_ENABLED: booleanFromEnv.default(false),
   LARA_SYNC_DAILY_HOUR: z.coerce.number().int().min(0).max(23).default(6),
   LARA_SYNC_DAILY_MINUTE: z.coerce.number().int().min(0).max(59).default(0),
-  LARA_SYNC_DAILY_TIMEZONE: z.string().default("America/Sao_Paulo"),
+  LARA_SYNC_DAILY_TIMEZONE: z.string().default("America/Manaus"),
   LARA_SYNC_DAILY_LIMIT: z.coerce.number().int().min(100).max(100000).default(30000),
   LARA_SYNC_DAILY_INCLUDE_DESD: booleanFromEnv.default(false),
   LARA_SYNC_STARTUP_RUN: booleanFromEnv.default(true),

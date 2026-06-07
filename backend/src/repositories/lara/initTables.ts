@@ -560,7 +560,7 @@ async function seedDefaultConfig(): Promise<void> {
   await upsertConfig("LARA_SYNC_DAILY_ATIVO", "false", "Ativa a sincronizacao diaria dos titulos em aberto.");
   await upsertConfig("LARA_SYNC_DAILY_HORA", "6", "Hora da sincronizacao diaria (0-23).");
   await upsertConfig("LARA_SYNC_DAILY_MINUTO", "0", "Minuto da sincronizacao diaria (0-59).");
-  await upsertConfig("LARA_SYNC_DAILY_TIMEZONE", "America/Sao_Paulo", "Fuso horario da sincronizacao diaria.");
+  await upsertConfig("LARA_SYNC_DAILY_TIMEZONE", "America/Manaus", "Fuso horario da sincronizacao diaria.");
   await upsertConfig("LARA_SYNC_DAILY_LIMIT", "30000", "Limite maximo de titulos na carga diaria.");
   await upsertConfig("LARA_SYNC_DAILY_INCLUDE_DESD", "false", "Inclui codcob DESD na carga diaria.");
   await upsertConfig("LARA_SYNC_STARTUP_RUN", "true", "Executa sincronizacao ao subir o backend.");

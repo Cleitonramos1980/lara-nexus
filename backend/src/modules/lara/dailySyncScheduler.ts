@@ -90,7 +90,7 @@ async function loadSettings(): Promise<LaraSyncSettings> {
     enabled: parseBool(readConfigValue(configMap, "LARA_SYNC_DAILY_ATIVO"), env.LARA_SYNC_DAILY_ENABLED),
     hour: parseIntSafe(readConfigValue(configMap, "LARA_SYNC_DAILY_HORA"), env.LARA_SYNC_DAILY_HOUR, 0, 23),
     minute: parseIntSafe(readConfigValue(configMap, "LARA_SYNC_DAILY_MINUTO"), env.LARA_SYNC_DAILY_MINUTE, 0, 59),
-    timeZone: String(timeZoneValue || "America/Sao_Paulo"),
+    timeZone: String(timeZoneValue || "America/Manaus"),
     limit: parseIntSafe(readConfigValue(configMap, "LARA_SYNC_DAILY_LIMIT"), env.LARA_SYNC_DAILY_LIMIT, 100, 100000),
     includeDesd: parseBool(readConfigValue(configMap, "LARA_SYNC_DAILY_INCLUDE_DESD"), env.LARA_SYNC_DAILY_INCLUDE_DESD),
     startupRun: parseBool(readConfigValue(configMap, "LARA_SYNC_STARTUP_RUN"), env.LARA_SYNC_STARTUP_RUN),

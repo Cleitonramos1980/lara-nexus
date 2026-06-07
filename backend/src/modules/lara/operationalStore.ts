@@ -696,7 +696,7 @@ function ensureMemoryDefaults(): void {
       {
         id: generateLaraId("CFG"),
         chave: "LARA_SYNC_DAILY_TIMEZONE",
-        valor: "America/Sao_Paulo",
+        valor: "America/Manaus",
         descricao: "Fuso horario da sincronizacao diaria",
         updated_at: now,
       },
