@@ -1,11 +1,10 @@
 /**
  * Lara — Scheduler Autônomo da Régua de Cobrança
  *
- * Roda diariamente na hora configurada, percorre todos os clientes elegíveis
- * e dispara UMA mensagem consolidada por cliente (todos os títulos em aberto
- * numa única mensagem, ou o template da etapa quando há apenas um título).
- *
- * Toda a lógica de negócio fica aqui — sem n8n externo.
+ * Timing inteligente: cada cliente recebe sua mensagem em um horário diferente
+ * entre 8h e 12h, sem padrão óbvio. O horário é determinístico por cliente/dia
+ * (hash de codcli + data) mas aprendemos o melhor horário de resposta de cada
+ * cliente ao longo do tempo para otimizar.
  */
 
 import { laraService } from "./service.js";
@@ -44,6 +43,82 @@ const SUPRESSAO_DIAS: Record<string, number> = {
 const TICK_MS           = 60_000;
 const RETRY_AFTER_MS    = 15 * 60 * 1000;
 const ETAPAS_DEFAULT    = new Set(["D-3", "D0", "D+3", "D+7", "D+15", "D+30"]);
+
+// Janela de disparo: 8h00 até 11h59 (não disparar depois das 12h)
+const DISPATCH_HOUR_MIN = 8;
+const DISPATCH_HOUR_MAX = 11; // inclusive
+
+/**
+ * Gera um hash numérico simples a partir de uma string (djb2).
+ * Determinístico: mesma entrada → mesmo resultado sempre.
+ */
+function hashString(s: string): number {
+  let h = 5381;
+  for (let i = 0; i < s.length; i++) {
+    h = ((h << 5) + h) ^ s.charCodeAt(i);
+    h = h >>> 0; // mantém unsigned 32-bit
+  }
+  return h;
+}
+
+/**
+ * Calcula horário alvo de disparo para um cliente específico nesta data.
+ * Usa hash(codcli + dateKey) para ser: determinístico, sem padrão óbvio entre clientes,
+ * diferente a cada dia para o mesmo cliente.
+ *
+ * Se houver histórico de respostas do cliente, prioriza o horário em que ele costuma responder.
+ */
+function calcClienteDispatchHour(codcli: string | number, dateKey: string, learnedHour?: number): number {
+  if (learnedHour !== undefined && learnedHour >= DISPATCH_HOUR_MIN && learnedHour <= DISPATCH_HOUR_MAX) {
+    return learnedHour;
+  }
+  const range = DISPATCH_HOUR_MAX - DISPATCH_HOUR_MIN + 1; // 4 horas (8,9,10,11)
+  const seed = hashString(`${codcli}:${dateKey}`);
+  return DISPATCH_HOUR_MIN + (seed % range);
+}
+
+function calcClienteDispatchMinute(codcli: string | number, dateKey: string): number {
+  // Minuto entre 0 e 59, também sem padrão
+  const seed = hashString(`${codcli}:${dateKey}:min`);
+  return seed % 60;
+}
+
+/**
+ * Aprende o horário preferido de resposta do cliente baseado no histórico de mensagens INBOUND.
+ * Retorna a moda do horário de respostas anteriores (em horas), ou undefined se sem histórico.
+ */
+async function getClienteLearnedHour(codcli: number): Promise<number | undefined> {
+  try {
+    const msgs = await laraOperationalStore.listMessagesByCodcli(codcli);
+    const inboundHours = msgs
+      .filter((m) => String(m.direction).toUpperCase() === "INBOUND" && m.received_at)
+      .map((m) => {
+        // Extrai a hora do campo received_at
+        const d = new Date(String(m.received_at));
+        if (!Number.isFinite(d.getTime())) return -1;
+        const hour = d.getUTCHours(); // usa UTC como referência consistente
+        return hour;
+      })
+      .filter((h) => h >= DISPATCH_HOUR_MIN && h <= DISPATCH_HOUR_MAX + 4); // tolera respostas até 15h
+
+    if (inboundHours.length < 2) return undefined; // sem histórico suficiente
+
+    // Conta frequência por hora e retorna a mais comum (moda)
+    const freq = new Map<number, number>();
+    for (const h of inboundHours) {
+      freq.set(h, (freq.get(h) ?? 0) + 1);
+    }
+    let bestHour = -1;
+    let bestCount = 0;
+    for (const [h, count] of freq) {
+      if (count > bestCount) { bestHour = h; bestCount = count; }
+    }
+    if (bestHour < DISPATCH_HOUR_MIN || bestHour > DISPATCH_HOUR_MAX) return undefined;
+    return bestHour;
+  } catch {
+    return undefined;
+  }
+}
 
 function parseBool(v: string | null | undefined, fallback: boolean): boolean {
   if (!v) return fallback;
@@ -99,32 +174,25 @@ function supressaoKey(codcli: string | number, etapa: string): string {
   return makeIdempotencyKey(["regua-scheduler", String(codcli), etapa, String(janela)]);
 }
 
-async function executarRegua(logger?: LoggerLike): Promise<void> {
-  if (!isWhatsAppConfigured()) {
-    logger?.warn?.({ modulo: "regua-scheduler" }, "WhatsApp nao configurado — régua ignorada.");
-    return;
-  }
-
-  const settings = await loadSettings();
+/**
+ * Processa os clientes cujo horário alvo foi atingido neste tick.
+ * Cada cliente tem um horário único (hash + aprendizado), então o scheduler
+ * roda o dia inteiro e vai disparando à medida que o horário de cada um chega.
+ */
+async function executarReguaTick(
+  currentHour: number,
+  currentMinute: number,
+  dateKey: string,
+  settings: ReguaSettings,
+  logger?: LoggerLike,
+): Promise<{ enviado: number; pulado: number; optout: number; semWa: number; erros: number }> {
   const etapasAtivas = settings.etapas;
-
-  // Carrega todos os clientes com títulos em aberto
   const todosClientes = await laraService.listClientes({});
 
-  // Modo piloto: restringe envio aos codcli autorizados
   const pilotCodclis = getPilotCodclis();
   const clientes = pilotCodclis.size > 0
     ? todosClientes.filter((c) => pilotCodclis.has(Number(c.codcli)))
     : todosClientes;
-
-  if (pilotCodclis.size > 0) {
-    logger?.info?.({
-      modulo: "regua-scheduler",
-      pilot_codclis: Array.from(pilotCodclis),
-      total_clientes: todosClientes.length,
-      clientes_autorizados: clientes.length,
-    }, "[PILOTO] Régua restrita — apenas codclis autorizados serão processados");
-  }
 
   let enviado = 0;
   let pulado  = 0;
@@ -138,48 +206,39 @@ async function executarRegua(logger?: LoggerLike): Promise<void> {
     .catch(() => 20);
 
   for (const cliente of clientes) {
-    // Filtra por etapa configurada
-    if (!etapasAtivas.has(cliente.etapa_regua)) {
-      pulado++;
-      continue;
-    }
+    if (!etapasAtivas.has(cliente.etapa_regua)) { pulado++; continue; }
+    if (cliente.optout) { optout++; continue; }
+    if (!cliente.wa_id && !cliente.telefone) { semWa++; continue; }
+    if ((cliente.qtd_titulos ?? 0) > MAX_TITULOS_POR_CLIENTE) { pulado++; continue; }
 
-    if (cliente.optout) {
-      optout++;
-      continue;
-    }
-
-    if (!cliente.wa_id && !cliente.telefone) {
-      semWa++;
-      continue;
-    }
-
-    // Clientes com muitos títulos são pulados (carteiras grandes, empresas, etc.)
-    if ((cliente.qtd_titulos ?? 0) > MAX_TITULOS_POR_CLIENTE) {
-      pulado++;
-      continue;
-    }
-
-    // Supressão por janela: já foi enviado nesta janela de tempo para esta etapa?
+    // Supressão: já enviado nesta janela?
     const key = supressaoKey(cliente.codcli, cliente.etapa_regua);
     const jaEnviado = await laraOperationalStore.findIntegrationByIdempotency(key).catch(() => null);
-    if (jaEnviado) {
-      pulado++;
-      continue;
-    }
+    if (jaEnviado) { pulado++; continue; }
+
+    // Timing inteligente: calcular horário alvo deste cliente
+    const codcliNum = Number(cliente.codcli);
+    const learnedHour = await getClienteLearnedHour(codcliNum);
+    const targetHour   = calcClienteDispatchHour(cliente.codcli, dateKey, learnedHour);
+    const targetMinute = calcClienteDispatchMinute(cliente.codcli, dateKey);
+
+    // Só dispara se o horário deste cliente foi atingido
+    const clienteReady = currentHour > targetHour
+      || (currentHour === targetHour && currentMinute >= targetMinute);
+    if (!clienteReady) { pulado++; continue; }
 
     try {
-      const result = await laraService.dispararReguaClienteConsolidado({ codcli: Number(cliente.codcli) });
+      const result = await laraService.dispararReguaClienteConsolidado({ codcli: codcliNum });
 
       if (result.status === "ok") {
         enviado++;
         await laraOperationalStore.addIntegrationLog({
-          integracao:       "regua-scheduler",
-          tipo:             "disparo-regua",
-          request_json:     { codcli: cliente.codcli, etapa: result.etapa, wa_id: result.wa_id },
-          response_json:    { wamid: result.wamid, titulos_count: result.titulos_count, mensagem: result.mensagem?.slice(0, 200) },
-          status_operacao:  "enviado",
-          idempotency_key:  key,
+          integracao:      "regua-scheduler",
+          tipo:            "disparo-regua",
+          request_json:    { codcli: cliente.codcli, etapa: result.etapa, wa_id: result.wa_id, target_hour: targetHour, target_minute: targetMinute, learned_hour: learnedHour },
+          response_json:   { wamid: result.wamid, titulos_count: result.titulos_count, mensagem: result.mensagem?.slice(0, 200) },
+          status_operacao: "enviado",
+          idempotency_key: key,
         });
       } else if (result.status === "optout") {
         optout++;
@@ -191,51 +250,33 @@ async function executarRegua(logger?: LoggerLike): Promise<void> {
     } catch (err) {
       erros++;
       logger?.error?.({
-        modulo:  "regua-scheduler",
-        codcli:  cliente.codcli,
-        etapa:   cliente.etapa_regua,
-        erro:    String(err),
+        modulo: "regua-scheduler",
+        codcli: cliente.codcli,
+        etapa:  cliente.etapa_regua,
+        erro:   String(err),
       }, "Erro ao disparar regua para cliente");
     }
 
-    // Pausa entre envios para respeitar rate limit da Meta
     if (settings.delayMs > 0) {
       await new Promise((r) => setTimeout(r, settings.delayMs));
     }
   }
 
-  const totalElegivel = clientes.filter((c) => etapasAtivas.has(c.etapa_regua)).length;
-
-  // Registra sumário de execução
-  await laraOperationalStore.addReguaExecucao({
-    etapa:             Array.from(etapasAtivas).join(","),
-    elegivel:          totalElegivel,
-    disparada:         enviado,
-    respondida:        0,
-    convertida:        0,
-    erro:              erros,
-    bloqueado_optout:  optout,
-    valor_impactado:   0,
-    status:            erros > 0 ? "concluido_com_erros" : "concluido",
-    detalhes_json:     { pulado, sem_wa: semWa, total_clientes: clientes.length },
-  });
-
-  logger?.info?.({
-    modulo:    "regua-scheduler",
-    enviado,
-    pulado,
-    optout,
-    sem_wa:    semWa,
-    erros,
-    elegivel:  totalElegivel,
-  }, "Regua de cobranca executada");
+  return { enviado, pulado, optout, semWa, erros };
 }
 
 export function startLaraReguaScheduler(logger?: LoggerLike): () => void {
   let stopped      = false;
   let running      = false;
   let retryAfterMs = 0;
-  let lastDateKey  = "";
+  // Rastreia o último dateKey processado: reseta a cada dia para permitir novo ciclo
+  let lastTickDateKey = "";
+  // Acumuladores do dia para o sumário
+  let diaEnviado = 0;
+  let diaPulado  = 0;
+  let diaOptout  = 0;
+  let diaSemWa   = 0;
+  let diaErros   = 0;
 
   const runTick = async (reason: "startup" | "timer"): Promise<void> => {
     if (stopped || running) return;
@@ -249,6 +290,7 @@ export function startLaraReguaScheduler(logger?: LoggerLike): () => void {
     }
 
     if (!settings.enabled) return;
+    if (!isUazapiConfigured() && !isWhatsAppConfigured()) return;
 
     let parts: ReturnType<typeof getDateParts>;
     try {
@@ -257,24 +299,56 @@ export function startLaraReguaScheduler(logger?: LoggerLike): () => void {
       parts = getDateParts(new Date(), "UTC");
     }
 
-    const reachedSchedule = parts.hour > settings.hour
-      || (parts.hour === settings.hour && parts.minute >= settings.minute);
+    // Janela de execução: só entre DISPATCH_HOUR_MIN e DISPATCH_HOUR_MAX+1
+    if (parts.hour < DISPATCH_HOUR_MIN || parts.hour > DISPATCH_HOUR_MAX) return;
 
-    if (!reachedSchedule) return;
-
-    // Uma execução por dia (a chave muda à meia-noite)
-    if (lastDateKey === parts.dateKey) return;
+    // Novo dia: reseta acumuladores
+    if (parts.dateKey !== lastTickDateKey) {
+      if (lastTickDateKey && (diaEnviado > 0 || diaErros > 0)) {
+        // Registra sumário do dia anterior
+        await laraOperationalStore.addReguaExecucao({
+          etapa:            Array.from(settings.etapas).join(","),
+          elegivel:         diaEnviado + diaPulado + diaOptout + diaSemWa,
+          disparada:        diaEnviado,
+          respondida:       0,
+          convertida:       0,
+          erro:             diaErros,
+          bloqueado_optout: diaOptout,
+          valor_impactado:  0,
+          status:           diaErros > 0 ? "concluido_com_erros" : "concluido",
+          detalhes_json:    { pulado: diaPulado, sem_wa: diaSemWa, timing: "inteligente_8_12h" },
+        }).catch(() => {});
+      }
+      lastTickDateKey = parts.dateKey;
+      diaEnviado = 0; diaPulado = 0; diaOptout = 0; diaSemWa = 0; diaErros = 0;
+    }
 
     running = true;
-    lastDateKey = parts.dateKey;
     try {
-      await executarRegua(logger);
+      const result = await executarReguaTick(
+        parts.hour, parts.minute, parts.dateKey, settings, logger,
+      );
+      diaEnviado += result.enviado;
+      diaPulado  += result.pulado;
+      diaOptout  += result.optout;
+      diaSemWa   += result.semWa;
+      diaErros   += result.erros;
+
+      if (result.enviado > 0) {
+        logger?.info?.({
+          modulo:   "regua-scheduler",
+          tick:     `${parts.hour}:${String(parts.minute).padStart(2, "0")}`,
+          enviado:  result.enviado,
+          pulado:   result.pulado,
+          optout:   result.optout,
+          dia_total: diaEnviado,
+        }, "Regua tick: mensagens disparadas");
+      }
       retryAfterMs = 0;
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       retryAfterMs = Date.now() + RETRY_AFTER_MS;
-      lastDateKey = ""; // permite nova tentativa após RETRY_AFTER_MS
-      logger?.error?.({ modulo: "regua-scheduler", erro: msg }, "Falha na execucao da regua de cobranca");
+      logger?.error?.({ modulo: "regua-scheduler", erro: msg }, "Falha no tick da regua de cobranca");
     } finally {
       running = false;
     }

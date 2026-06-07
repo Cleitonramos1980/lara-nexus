@@ -70,8 +70,10 @@ const INTENTS: LaraIntent[] = [
   "solicitar_negociacao",
   "confirmacao_contexto",
   "promessa_pagamento",
+  "pagamento_confirmado",
   "falar_humano",
   "optout",
+  "optin",
   "neutro",
 ];
 
@@ -81,9 +83,11 @@ const BASE_LEXICON: IntentLexicon = {
   solicitar_pagamento: ["quero pagar", "desejo pagar", "pagar o titulo", "pagar a duplicata", "pagar esse", "pagar essa", "como pago", "forma de pagamento", "opcoes de pagamento"],
   solicitar_negociacao: ["negociar", "negociacao", "parcelar", "parcelamento", "desconto", "acordo", "proposta", "condicao especial"],
   confirmacao_contexto: ["ok", "pode", "manda", "envia", "confirmo", "certo"],
-  promessa_pagamento: ["vou pagar", "pagarei", "pago", "promessa", "amanha", "hoje", "dia"],
+  promessa_pagamento: ["vou pagar", "pagarei", "pago amanha", "promessa", "amanha", "hoje", "dia"],
+  pagamento_confirmado: ["paguei", "ja paguei", "fiz o pix", "efetuei o pagamento", "pagamento realizado", "pix enviado"],
   falar_humano: ["atendente", "humano", "operador", "supervisor", "gerente"],
   optout: ["pare", "parar", "remover", "descadastrar", "opt out", "nao quero mensagem"],
+  optin: ["continuar", "voltar", "quero receber", "pode enviar", "reativar", "me inclua", "quero mensagem", "volta a me enviar"],
   neutro: [],
 };
 
@@ -544,8 +548,10 @@ export function classifyIntentWithNlu(messageText: string): NluResult {
         solicitar_negociacao: 0,
         confirmacao_contexto: 0,
         promessa_pagamento: 0,
+        pagamento_confirmado: 0,
         falar_humano: 0,
         optout: 0,
+        optin: 0,
         neutro: 1,
       },
       classifier: {
@@ -566,8 +572,10 @@ export function classifyIntentWithNlu(messageText: string): NluResult {
     solicitar_negociacao: scoreIntent(tokens, normalizedText, LEXICON.solicitar_negociacao),
     confirmacao_contexto: scoreIntent(tokens, normalizedText, LEXICON.confirmacao_contexto),
     promessa_pagamento: scoreIntent(tokens, normalizedText, LEXICON.promessa_pagamento),
+    pagamento_confirmado: scoreIntent(tokens, normalizedText, LEXICON.pagamento_confirmado ?? []),
     falar_humano: scoreIntent(tokens, normalizedText, LEXICON.falar_humano),
     optout: scoreIntent(tokens, normalizedText, LEXICON.optout),
+    optin: scoreIntent(tokens, normalizedText, LEXICON.optin ?? []),
     neutro: 0,
   };
 

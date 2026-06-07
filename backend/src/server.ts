@@ -50,6 +50,7 @@ import { startFeedbackAggregatorScheduler } from "./modules/lara/feedbackAggrega
 import { startLearningEngineScheduler } from "./modules/lara/learningEngine.js";
 import { startWhatsAppTemplateMonitor } from "./modules/lara/whatsappTemplateMonitor.js";
 import { startLaraReguaScheduler } from "./modules/lara/reguaScheduler.js";
+import { startLaraReadFollowupScheduler } from "./modules/lara/readFollowupScheduler.js";
 import { startBanditEngine } from "./modules/lara/banditsEngine.js";
 import { initPropensityModel } from "./modules/lara/propensityModel.js";
 import { initUpliftModel } from "./modules/lara/upliftModel.js";
@@ -228,6 +229,7 @@ let stopLearningEngine: (() => void) | null = null;
 let stopWaTemplateMonitor: (() => void) | null = null;
 let stopReguaScheduler: (() => void) | null = null;
 let stopBanditEngine: (() => void) | null = null;
+let stopReadFollowup: (() => void) | null = null;
 await app.register(multipart, {
   limits: {
     files: env.UPLOAD_MAX_FILES,
@@ -282,6 +284,7 @@ async function start() {
     stopWaTemplateMonitor = startWhatsAppTemplateMonitor(app.log);
     stopReguaScheduler = startLaraReguaScheduler(app.log);
     stopBanditEngine = startBanditEngine();
+    stopReadFollowup = startLaraReadFollowupScheduler(app.log);
   } else {
     app.log.warn("Schedulers Lara desativados por LARA_SCHEDULERS_ENABLED=false.");
   }
@@ -370,6 +373,10 @@ process.on("SIGINT", async () => {
   if (stopBanditEngine) {
     stopBanditEngine();
     stopBanditEngine = null;
+  }
+  if (stopReadFollowup) {
+    stopReadFollowup();
+    stopReadFollowup = null;
   }
   await persistAllCollections();
   await closeOraclePool();

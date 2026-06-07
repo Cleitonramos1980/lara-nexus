@@ -221,6 +221,32 @@ const negociacaoIntentPatterns = [
   /\bcondi[cç][aã]o especial\b/,
 ];
 
+const optInIntentPatterns = [
+  /\bcontinuar\b/,
+  /\bvoltar\b/,
+  /\bquero receber\b/,
+  /\bpode (me )?enviar\b/,
+  /\breativar\b/,
+  /\bme inclua\b/,
+  /\bquero (receber )?(mensagem|mensagens|contato)\b/,
+  /\bvolta (a me enviar|a enviar)\b/,
+  /\bopt[- ]?in\b/,
+];
+
+const pagamentoConfirmadoPatterns = [
+  /^pago$/,
+  /\bja paguei\b/,
+  /\bpaguei( o titulo| o pix| o boleto| agora| hoje)?\b/,
+  /\befetuei o pagamento\b/,
+  /\bfiz o pagamento\b/,
+  /\bfiz o pix\b/,
+  /\brealizei o pagamento\b/,
+  /\bpix (enviado|realizado|feito|efetuado)\b/,
+  /\bpagamento (realizado|efetuado|feito|confirmado)\b/,
+  /\bjá está pago\b/,
+  /\bjá paguei\b/,
+];
+
 export type LaraIntent =
   | "solicitar_boleto"
   | "solicitar_pix"
@@ -228,13 +254,17 @@ export type LaraIntent =
   | "solicitar_negociacao"
   | "confirmacao_contexto"
   | "promessa_pagamento"
+  | "pagamento_confirmado"
   | "falar_humano"
   | "optout"
+  | "optin"
   | "neutro";
 
 export function detectIntent(messageText: string): LaraIntent {
   const normalized = removeAccents(safeText(messageText).toLowerCase());
   if (!normalized) return "neutro";
+  if (pagamentoConfirmadoPatterns.some((pattern) => pattern.test(normalized))) return "pagamento_confirmado";
+  if (optInIntentPatterns.some((pattern) => pattern.test(normalized))) return "optin";
   if (optOutIntentPatterns.some((pattern) => pattern.test(normalized))) return "optout";
   if (humanIntentPatterns.some((pattern) => pattern.test(normalized))) return "falar_humano";
   if (negociacaoIntentPatterns.some((pattern) => pattern.test(normalized))) return "solicitar_negociacao";

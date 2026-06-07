@@ -1230,29 +1230,73 @@ export class LaraService {
     const t0 = titulos[0];
 
     if (isUazapiConfigured()) {
-      // Canal uazapi: texto livre, sem necessidade de template aprovado
-      let texto: string;
-      if (titulos.length === 1) {
-        texto =
-          `Ola ${nome}! Identificamos um titulo em aberto:\n\n` +
-          `📋 Duplicata: ${t0.duplicata}\n` +
-          `💰 Valor: ${formatMoneyBr(t0.valor)}\n` +
-          `📅 Vencimento: ${formatDateBr(t0.vencimento)}\n\n` +
-          `Para regularizar, responda *BOLETO* ou *PIX* e te envio o codigo de pagamento.`;
-      } else {
-        const linhas = titulos.slice(0, 5).map((t) =>
-          `• ${t.duplicata} — ${formatMoneyBr(t.valor)} (venc. ${formatDateBr(t.vencimento)})`
-        ).join("\n");
-        texto =
-          `Ola ${nome}! Voce possui ${titulos.length} titulo(s) em aberto totalizando *${formatMoneyBr(total)}*:\n\n` +
-          `${linhas}${titulos.length > 5 ? `\n...e mais ${titulos.length - 5} titulo(s)` : ""}\n\n` +
-          `Para regularizar, responda *BOLETO* ou *PIX* e te envio o codigo de pagamento.`;
+      // Canal uazapi: tenta gerar PIX na primeira mensagem (Quick Win)
+      let pixPayload: LaraPagamentoPayload | null = null;
+      try {
+        pixPayload = await this.gerarPayloadPagamento("pix", cliente, titulos);
+      } catch {
+        // fallback: PIX indisponivel, pede preferencia ao cliente
       }
-      const res = await uazapiSendText(waId, texto);
-      wamid = res.messageid;
-      mensagem = titulos.length === 1
-        ? `[uazapi:${etapa}] ${t0.duplicata} | ${formatMoneyBr(t0.valor)}`
-        : `[uazapi:${etapa}] ${titulos.length} titulos | ${formatMoneyBr(total)}`;
+
+      const pixCopiaCola = (pixPayload?.tipo === "pix" || pixPayload?.tipo === "bolepix")
+        ? pixPayload.pix_copia_cola
+        : "";
+
+      if (pixPayload && pixCopiaCola) {
+        // PIX disponivel: envia tudo na primeira mensagem
+        const totalFmt = formatMoneyBr(pixPayload.total ?? total);
+        let cabecalho: string;
+        if (titulos.length === 1) {
+          cabecalho =
+            `Ola ${nome}! Identificamos um titulo em aberto:\n\n` +
+            `📋 Duplicata: ${t0.duplicata}\n` +
+            `💰 Valor: ${formatMoneyBr(t0.valor)}\n` +
+            `📅 Vencimento: ${formatDateBr(t0.vencimento)}\n\n` +
+            `Para facilitar, segue o PIX no valor de *${totalFmt}*:`;
+        } else {
+          const linhas = titulos.slice(0, 5).map((t) =>
+            `• ${t.duplicata} — ${formatMoneyBr(t.valor)} (venc. ${formatDateBr(t.vencimento)})`
+          ).join("\n");
+          cabecalho =
+            `Ola ${nome}! Voce possui ${titulos.length} titulo(s) em aberto totalizando *${formatMoneyBr(total)}*:\n\n` +
+            `${linhas}${titulos.length > 5 ? `\n...e mais ${titulos.length - 5} titulo(s)` : ""}\n\n` +
+            `Para facilitar, segue o PIX consolidado no valor de *${totalFmt}*:`;
+        }
+        const res = await uazapiSendText(waId, cabecalho);
+        wamid = res.messageid;
+        // Envia o codigo PIX como mensagem separada (facil de copiar)
+        await new Promise((r) => setTimeout(r, 600));
+        await uazapiSendText(waId, pixCopiaCola);
+        await new Promise((r) => setTimeout(r, 400));
+        await uazapiSendText(waId, `Apos o pagamento, responda *PAGO* para confirmarmos. Se preferir boleto, responda *BOLETO*.`);
+        mensagem = titulos.length === 1
+          ? `[uazapi-pix:${etapa}] ${t0.duplicata} | ${formatMoneyBr(t0.valor)}`
+          : `[uazapi-pix:${etapa}] ${titulos.length} titulos | ${formatMoneyBr(total)}`;
+      } else {
+        // Fallback: PIX indisponivel, pede preferencia
+        let texto: string;
+        if (titulos.length === 1) {
+          texto =
+            `Ola ${nome}! Identificamos um titulo em aberto:\n\n` +
+            `📋 Duplicata: ${t0.duplicata}\n` +
+            `💰 Valor: ${formatMoneyBr(t0.valor)}\n` +
+            `📅 Vencimento: ${formatDateBr(t0.vencimento)}\n\n` +
+            `Para regularizar, responda *BOLETO* ou *PIX* e te envio o codigo de pagamento.`;
+        } else {
+          const linhas = titulos.slice(0, 5).map((t) =>
+            `• ${t.duplicata} — ${formatMoneyBr(t.valor)} (venc. ${formatDateBr(t.vencimento)})`
+          ).join("\n");
+          texto =
+            `Ola ${nome}! Voce possui ${titulos.length} titulo(s) em aberto totalizando *${formatMoneyBr(total)}*:\n\n` +
+            `${linhas}${titulos.length > 5 ? `\n...e mais ${titulos.length - 5} titulo(s)` : ""}\n\n` +
+            `Para regularizar, responda *BOLETO* ou *PIX* e te envio o codigo de pagamento.`;
+        }
+        const res = await uazapiSendText(waId, texto);
+        wamid = res.messageid;
+        mensagem = titulos.length === 1
+          ? `[uazapi:${etapa}] ${t0.duplicata} | ${formatMoneyBr(t0.valor)}`
+          : `[uazapi:${etapa}] ${titulos.length} titulos | ${formatMoneyBr(total)}`;
+      }
     } else {
       // Canal Meta: usa template aprovado
       const result = await enviarTemplateEtapa({
@@ -4667,6 +4711,86 @@ export class LaraService {
       });
     }
 
+    // Opt-in: cliente quer voltar a receber mensagens
+    if (intent === "optin") {
+      const optoutAtivo = await laraOperationalStore.findActiveOptoutByWaId(waId);
+      if (optoutAtivo?.id) {
+        await laraOperationalStore.disableOptoutById(optoutAtivo.id);
+        await this.createCase({
+          wa_id: waId,
+          codcli: input.codcli,
+          tipo_case: "OPTIN_RETORNO",
+          detalhe: "Cliente reativou contato apos opt-out",
+          origem: "whatsapp-inbound",
+          responsavel: "Lara Automacao",
+        });
+        const msgRetorno = "Que otimo! Seu contato foi reativado. Continuaremos te informando sobre seus titulos em aberto. Para parar de receber mensagens a qualquer momento, basta responder *PARAR*.";
+        if (isUazapiConfigured()) {
+          await uazapiSendText(waId, msgRetorno).catch(() => {});
+        } else if (isWhatsAppConfigured()) {
+          await sendTextMessage(waId, msgRetorno).catch(() => {});
+        }
+        await writeAudit("resposta_padrao", true, "Opt-in: cliente reativou contato.", input.codcli, { flow: "optin" });
+        return {
+          status: "ok",
+          mensagem: msgRetorno,
+          acao: "optin_aplicado",
+          wa_id: waId,
+          compliance: {
+            permitido: true,
+            razao: "Opt-in explicito do cliente",
+            base_legal: "LGPD Art. 7, I",
+            revisao_humana_disponivel: false,
+            score_confianca: nlu.confidence,
+          },
+        };
+      }
+    }
+
+    // Pagamento confirmado pelo cliente: agradecer e criar case para validação
+    if (intent === "pagamento_confirmado") {
+      const ctxPago = await this.findRecentContextByWa(waId).catch(() => null);
+      const codcliPago = input.codcli ?? ctxPago?.codcli ?? null;
+      await this.createCase({
+        wa_id: waId,
+        codcli: codcliPago ?? undefined,
+        tipo_case: "PAGAMENTO_CONFIRMADO_CLIENTE",
+        detalhe: `Cliente informou pagamento realizado. Mensagem: "${messageText.slice(0, 200)}"`,
+        origem: "whatsapp-inbound",
+        responsavel: "Lara Automacao",
+        status: "pendente",
+      });
+      const msgAgradecimento = "Obrigado pela confirmacao! Nossa equipe ira verificar o pagamento em breve. Apos a confirmacao, seu titulo sera baixado. Qualquer duvida, estamos aqui!";
+      if (isUazapiConfigured()) {
+        await uazapiSendText(waId, msgAgradecimento).catch(() => {});
+      } else if (isWhatsAppConfigured()) {
+        await sendTextMessage(waId, msgAgradecimento).catch(() => {});
+      }
+      await laraOperationalStore.addMessageLog({
+        wa_id: waId, codcli: codcliPago, cliente: "", telefone,
+        message_text: msgAgradecimento, direction: "OUTBOUND",
+        origem: "whatsapp-inbound", etapa: ctxPago?.etapa ?? "", duplics: ctxPago?.duplicatas?.join(", ") ?? "",
+        valor_total: 0, payload_json: JSON.stringify({ acao: "pagamento_confirmado_cliente" }), status: "enviado",
+        sent_at: dateToIsoDateTime(new Date()), received_at: "", message_type: "texto",
+        operator_name: "Lara Automacao",
+        idempotency_key: makeIdempotencyKey([waId, "pagamento_confirmado", messageText.slice(0, 40)]),
+      });
+      await writeAudit("registrar_promessa", true, "Cliente confirmou pagamento — aguardando validacao.", codcliPago ?? undefined, { flow: "pagamento_confirmado" });
+      return {
+        status: "ok",
+        mensagem: msgAgradecimento,
+        acao: "pagamento_confirmado_registrado",
+        wa_id: waId,
+        compliance: {
+          permitido: true,
+          razao: "Confirmacao de pagamento pelo cliente",
+          base_legal: "LGPD Art. 7, I",
+          revisao_humana_disponivel: true,
+          score_confianca: nlu.confidence,
+        },
+      };
+    }
+
     if (intent === "optout") {
       await this.setOptout({
         wa_id: waId,
@@ -4684,10 +4808,16 @@ export class LaraService {
         origem: "whatsapp-inbound",
         responsavel: "Lara Automacao",
       });
+      const msgOptout = "Solicitacao registrada. Nao enviaremos novas mensagens automaticas para este numero. Se quiser voltar a receber nossas comunicacoes, basta responder *CONTINUAR* a qualquer momento.";
+      if (isUazapiConfigured()) {
+        await uazapiSendText(waId, msgOptout).catch(() => {});
+      } else if (isWhatsAppConfigured()) {
+        await sendTextMessage(waId, msgOptout).catch(() => {});
+      }
       await writeAudit("pausar_contato", false, "Opt-out detectado e bloqueio aplicado.", input.codcli, { flow: "optout" });
       return {
         status: "ok",
-        mensagem: "Solicitacao registrada. Nao enviaremos novas mensagens automaticas para este numero.",
+        mensagem: msgOptout,
         acao: "optout_aplicado",
         wa_id: waId,
         compliance: {
