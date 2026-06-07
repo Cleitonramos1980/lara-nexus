@@ -4909,17 +4909,49 @@ export class LaraService {
     if (intent === "pagamento_confirmado") {
       const ctxPago = await this.findRecentContextByWa(waId).catch(() => null);
       const codcliPago = input.codcli ?? ctxPago?.codcli ?? null;
+      const clientePagoCtx = codcliPago ? await this.getCliente(codcliPago).catch(() => null) : null;
+      const titulosPago = clientePagoCtx ? await this.listTitulos({ codcli: Number(clientePagoCtx.codcli) }).catch(() => []) : [];
+      const totalPagoAberto = roundMoney(titulosPago.reduce((s, t) => s + t.valor, 0));
+      const temTituloAberto = totalPagoAberto > 0;
+
+      if (!temTituloAberto && codcliPago) {
+        // Cliente identificado mas sem dívida ativa — provavelmente já foi baixado pelo webhook PIX
+        const nomeSemDivida = clientePagoCtx?.cliente?.split(" ")[0] ?? "cliente";
+        const msgSemDivida = `Que otimo, ${nomeSemDivida}! Nao encontramos titulos em aberto para sua conta. Se tiver qualquer duvida sobre pagamentos anteriores, pode perguntar aqui!`;
+        if (isUazapiConfigured()) {
+          await uazapiSendText(waId, msgSemDivida).catch(() => {});
+        } else if (isWhatsAppConfigured()) {
+          await sendTextMessage(waId, msgSemDivida).catch(() => {});
+        }
+        await laraOperationalStore.addMessageLog({
+          wa_id: waId, codcli: codcliPago, cliente: clientePagoCtx?.cliente ?? "", telefone,
+          message_text: msgSemDivida, direction: "OUTBOUND",
+          origem: "whatsapp-inbound", etapa: "", duplics: "",
+          valor_total: 0, payload_json: JSON.stringify({ acao: "sem_divida_ativa" }), status: "enviado",
+          sent_at: dateToIsoDateTime(new Date()), received_at: "", message_type: "texto",
+          operator_name: "Lara Automacao",
+          idempotency_key: makeIdempotencyKey([waId, "sem_divida_confirmacao", dateToIsoDate(new Date())]),
+        });
+        return {
+          status: "ok", mensagem: msgSemDivida, acao: "sem_divida_ativa", wa_id: waId,
+          compliance: { permitido: true, razao: "Cliente sem divida ativa", base_legal: "LGPD Art. 7, I", revisao_humana_disponivel: false, score_confianca: nlu.confidence },
+        };
+      }
+
       await this.createCase({
         wa_id: waId,
         codcli: codcliPago ?? undefined,
-        tipo_case: "PAGAMENTO_CONFIRMADO_CLIENTE",
-        detalhe: `Cliente informou pagamento realizado. Mensagem: "${messageText.slice(0, 200)}"`,
+        tipo_case: codcliPago ? "PAGAMENTO_CONFIRMADO_CLIENTE" : "PAGAMENTO_CONFIRMADO_DESCONHECIDO",
+        etapa: clientePagoCtx?.etapa_regua,
+        valor_total: totalPagoAberto,
+        detalhe: codcliPago
+          ? `Cliente informou pagamento. Saldo em aberto: R$ ${formatMoneyBr(totalPagoAberto)}. Mensagem: "${messageText.slice(0, 150)}"`
+          : `Cliente desconhecido informou pagamento. Nao foi possivel identificar codcli pelo wa_id. Mensagem: "${messageText.slice(0, 150)}"`,
         origem: "whatsapp-inbound",
         responsavel: "Lara Automacao",
         status: "pendente",
       });
       const fallbackAgradecimento = "Obrigado pela confirmacao! Nossa equipe ira verificar o pagamento em breve. Apos a confirmacao, seu titulo sera baixado. Qualquer duvida, estamos aqui!";
-      const clientePago = codcliPago ? await this.getCliente(codcliPago).catch(() => null) : null;
       const histPago = (await laraOperationalStore.listMessagesByWaId(waId).catch(() => [])).slice(-8).map((m) => ({
         role: String(m.direction).toUpperCase() === "INBOUND" ? "cliente" as const : "lara" as const,
         texto: String(m.message_text || ""),
@@ -4927,7 +4959,7 @@ export class LaraService {
       const msgAgradecimento = await this.composeRespostaIntent({
         acao: "pagamento_confirmado",
         waId,
-        nomeCliente: clientePago?.cliente,
+        nomeCliente: clientePagoCtx?.cliente,
         mensagemOriginal: messageText,
         fallback: fallbackAgradecimento,
         historicoConversa: histPago,
@@ -4938,7 +4970,7 @@ export class LaraService {
         await sendTextMessage(waId, msgAgradecimento).catch(() => {});
       }
       await laraOperationalStore.addMessageLog({
-        wa_id: waId, codcli: codcliPago, cliente: clientePago?.cliente ?? "", telefone,
+        wa_id: waId, codcli: codcliPago, cliente: clientePagoCtx?.cliente ?? "", telefone,
         message_text: msgAgradecimento, direction: "OUTBOUND",
         origem: "whatsapp-inbound", etapa: ctxPago?.etapa ?? "", duplics: ctxPago?.duplicatas?.join(", ") ?? "",
         valor_total: 0, payload_json: JSON.stringify({ acao: "pagamento_confirmado_cliente" }), status: "enviado",
@@ -4971,13 +5003,30 @@ export class LaraService {
         origem: "whatsapp-inbound",
         observacao: messageText,
       });
+
+      // Enriquece o case com informações da dívida para ação por outros canais
+      const codcliOptout = input.codcli ?? this.getWaContext(waId)?.codcli ?? null;
+      const clienteOptout = codcliOptout ? await this.getCliente(codcliOptout).catch(() => null) : null;
+      const titulosOptout = clienteOptout ? await this.listTitulos({ codcli: Number(clienteOptout.codcli) }).catch(() => []) : [];
+      const totalOptout = roundMoney(titulosOptout.reduce((s, t) => s + t.valor, 0));
+      const temDivida = totalOptout > 0;
+      const prioridadeCase = totalOptout >= 5000 ? "critica" : totalOptout >= 1000 ? "alta" : "normal";
+
+      const detalheOptout = temDivida
+        ? `Cliente solicitou opt-out WhatsApp. DIVIDA ATIVA: R$ ${formatMoneyBr(totalOptout)} em ${titulosOptout.length} titulo(s) — etapa ${clienteOptout?.etapa_regua ?? "-"}. ` +
+          `Cobranca deve continuar por outros canais (telefone, carta, juridico). Mensagem original: "${messageText.slice(0, 150)}"`
+        : `Cliente solicitou opt-out. Sem divida ativa identificada. Mensagem: "${messageText.slice(0, 150)}"`;
+
       await this.createCase({
         wa_id: waId,
         codcli: input.codcli,
-        tipo_case: "OPTOUT_SET",
-        detalhe: "Cliente solicitou opt-out",
+        tipo_case: temDivida ? "OPTOUT_COM_DIVIDA_ATIVA" : "OPTOUT_SET",
+        etapa: clienteOptout?.etapa_regua,
+        valor_total: totalOptout,
+        detalhe: detalheOptout,
         origem: "whatsapp-inbound",
         responsavel: "Lara Automacao",
+        status: temDivida ? "pendente" : "encerrado",
       });
       // Opt-out: ação já executada (setOptout + createCase). Só o texto varia com LLM.
       const fallbackOptout = "Solicitacao registrada. Nao enviaremos novas mensagens automaticas para este numero. Se quiser voltar a receber nossas comunicacoes, basta responder CONTINUAR a qualquer momento.";

@@ -92,6 +92,14 @@ const CRITICAL_SIGNALS = [
   // Ameaças diretas
   "ameaça", "ameaca", "te processo", "isso é assédio", "isso e assedio",
   "abuso de cobrança", "abuso de cobranca", "constrangimento ilegal",
+  // Catástrofe / violência — precisa de atendimento humano imediato
+  "fui roubado", "fui assaltado", "me roubaram", "assalto", "furto",
+  "enchente", "inundação", "inundacao", "casa alagou", "perdi tudo na enchente",
+  "incêndio", "incendio", "casa pegou fogo", "perdi minha casa",
+  "acidente grave", "baleado", "esfaqueado", "vítima de crime", "vitima de crime",
+  "recuperação judicial", "recuperacao judicial", "falência", "falencia",
+  "fraude bancária", "fraude bancaria", "clonaram meu cartão", "clonaram meu cartao",
+  "cpf clonado", "identidade clonada",
 ];
 
 // ─── Risco Legal (subconjunto de critical com implicação jurídica) ────────────
