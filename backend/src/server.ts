@@ -52,6 +52,7 @@ import { startWhatsAppTemplateMonitor } from "./modules/lara/whatsappTemplateMon
 import { startLaraReguaScheduler } from "./modules/lara/reguaScheduler.js";
 import { startLaraReadFollowupScheduler } from "./modules/lara/readFollowupScheduler.js";
 import { startBanditEngine } from "./modules/lara/banditsEngine.js";
+import { registerFallbackLogger } from "./modules/lara/operationalStore.js";
 import { initPropensityModel } from "./modules/lara/propensityModel.js";
 import { initUpliftModel } from "./modules/lara/upliftModel.js";
 import { runNightlyRetraining } from "./modules/lara/onlineLearner.js";
@@ -276,6 +277,8 @@ async function start() {
   await ensureLaraTables().catch((err) => {
     app.log.warn({ err }, "[lara] ensureLaraTables falhou — tabelas auxiliares serao criadas na proxima conexao bem-sucedida.");
   });
+  // Registra o logger do servidor no fallback handler para alertas visíveis no log
+  registerFallbackLogger({ error: (payload, msg) => app.log.error(payload, msg) });
   if (env.LARA_SCHEDULERS_ENABLED) {
     stopLaraDailySync = startLaraDailySyncScheduler(app.log);
     stopLaraPromiseFollowup = startLaraPromiseFollowupScheduler(app.log);

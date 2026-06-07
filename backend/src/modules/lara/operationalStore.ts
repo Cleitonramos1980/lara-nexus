@@ -274,15 +274,86 @@ function shouldFallbackToMemory(error: unknown): boolean {
   );
 }
 
+// ─── Estado de fallback Oracle → RAM ─────────────────────────────────────────
+// Visível externamente via getOracleFallbackState() para health checks
+
+type OracleFallbackState = {
+  emFallback: boolean;         // true = Oracle caiu, usando RAM
+  desde: Date | null;          // quando entrou em fallback
+  totalEventos: number;        // total de chamadas que caíram para RAM
+  ultimoErro: string;          // última mensagem de erro do Oracle
+  ultimoAlertaEmitido: number; // timestamp do último log de alerta (evita spam)
+};
+
+const _fallbackState: OracleFallbackState = {
+  emFallback: false,
+  desde: null,
+  totalEventos: 0,
+  ultimoErro: "",
+  ultimoAlertaEmitido: 0,
+};
+
+export function getOracleFallbackState(): Readonly<OracleFallbackState> {
+  return { ..._fallbackState };
+}
+
+// Logger registrado pelo server.ts para emitir alertas estruturados
+type FallbackLogger = { error: (payload: Record<string, unknown>, msg: string) => void };
+let _fallbackLogger: FallbackLogger | null = null;
+
+export function registerFallbackLogger(logger: FallbackLogger): void {
+  _fallbackLogger = logger;
+}
+
+const ALERT_DEBOUNCE_MS = 60_000; // emite no máximo 1 alerta por minuto
+
+function onFallbackActivated(error: unknown): void {
+  const msg = error instanceof Error ? error.message : String(error);
+  _fallbackState.totalEventos += 1;
+  _fallbackState.ultimoErro = msg.slice(0, 300);
+
+  if (!_fallbackState.emFallback) {
+    _fallbackState.emFallback = true;
+    _fallbackState.desde = new Date();
+  }
+
+  const now = Date.now();
+  if (now - _fallbackState.ultimoAlertaEmitido >= ALERT_DEBOUNCE_MS) {
+    _fallbackState.ultimoAlertaEmitido = now;
+    _fallbackLogger?.error(
+      {
+        modulo: "oracle-fallback",
+        em_fallback: true,
+        desde: _fallbackState.desde?.toISOString(),
+        total_eventos: _fallbackState.totalEventos,
+        erro: _fallbackState.ultimoErro,
+        aviso: "Dados gravados somente em RAM — serao PERDIDOS no restart do servidor.",
+      },
+      "ALERTA: Oracle indisponivel — sistema em modo fallback (RAM). Dados em risco.",
+    );
+  }
+}
+
 async function withOperationalFallback<T>(
   oracleFn: () => Promise<T>,
   memoryFn: () => T | Promise<T>,
 ): Promise<T> {
   if (!isOracleEnabled()) return memoryFn();
   try {
-    return await oracleFn();
+    const result = await oracleFn();
+    // Oracle respondeu OK — sai do modo fallback se estava nele
+    if (_fallbackState.emFallback) {
+      _fallbackState.emFallback = false;
+      _fallbackState.desde = null;
+      _fallbackLogger?.error(
+        { modulo: "oracle-fallback", em_fallback: false, total_eventos: _fallbackState.totalEventos },
+        "Oracle reconectado — fallback de RAM desativado.",
+      );
+    }
+    return result;
   } catch (error) {
     if (shouldFallbackToMemory(error)) {
+      onFallbackActivated(error);
       return memoryFn();
     }
     throw error;
@@ -1803,7 +1874,9 @@ export class LaraOperationalStore {
     );
   }
 
-  async listMessagesByCodcli(codcli: number): Promise<MessageLogRow[]> {
+  async listMessagesByCodcli(codcli: number, options?: { diasRetroativos?: number; maxRows?: number }): Promise<MessageLogRow[]> {
+    const diasRetroativos = options?.diasRetroativos ?? 90;
+    const maxRows = options?.maxRows ?? 500;
     return withOperationalFallback(
       async () => {
         const rows = await queryRows<MessageLogRow>(
@@ -1814,29 +1887,37 @@ export class LaraOperationalStore {
             IDEMPOTENCY_KEY, CREATED_AT
           FROM LARA_COB_MSG_LOG
           WHERE CODCLI = :codcli
+            AND CREATED_AT >= SYSDATE - :dias
           ORDER BY CREATED_AT ASC
+          FETCH FIRST :maxRows ROWS ONLY
           `,
-          { codcli },
+          { codcli, dias: diasRetroativos, maxRows },
         );
         return rows.map(mapMessageLogRow);
       },
-      () => memoryStore.mensagens.filter((item) => Number(item.codcli ?? 0) === codcli).sort((a, b) => a.created_at.localeCompare(b.created_at)),
+      () => {
+        const cutoff = new Date(Date.now() - diasRetroativos * 24 * 60 * 60 * 1000).toISOString();
+        return memoryStore.mensagens
+          .filter((item) => Number(item.codcli ?? 0) === codcli && item.created_at >= cutoff)
+          .sort((a, b) => a.created_at.localeCompare(b.created_at))
+          .slice(0, maxRows);
+      },
     );
   }
 
   async listAllMessages(limit = 2000): Promise<MessageLogRow[]> {
     return withOperationalFallback(
       async () => {
+        // Usa FETCH FIRST (Oracle 12c+) que é index-friendly com ORDER BY CREATED_AT DESC
         const rows = await queryRows<MessageLogRow>(
           `
-          SELECT * FROM (
-            SELECT
-              ID, WA_ID, CODCLI, CLIENTE, TELEFONE, MESSAGE_TEXT, DIRECTION, ORIGEM, ETAPA, DUPLICS,
-              VALOR_TOTAL, PAYLOAD_JSON, STATUS, SENT_AT, RECEIVED_AT, MESSAGE_TYPE, OPERATOR_NAME,
-              IDEMPOTENCY_KEY, CREATED_AT
-            FROM LARA_COB_MSG_LOG
-            ORDER BY CREATED_AT DESC
-          ) WHERE ROWNUM <= :limitRows
+          SELECT
+            ID, WA_ID, CODCLI, CLIENTE, TELEFONE, MESSAGE_TEXT, DIRECTION, ORIGEM, ETAPA, DUPLICS,
+            VALOR_TOTAL, PAYLOAD_JSON, STATUS, SENT_AT, RECEIVED_AT, MESSAGE_TYPE, OPERATOR_NAME,
+            IDEMPOTENCY_KEY, CREATED_AT
+          FROM LARA_COB_MSG_LOG
+          ORDER BY CREATED_AT DESC
+          FETCH FIRST :limitRows ROWS ONLY
           `,
           { limitRows: limit },
         );

@@ -303,8 +303,10 @@ const INDEXES: EnsureIndex[] = [
   { name: "UX_LARA_REGUA_TEMPLATE", table: "LARA_REGUA_TEMPLATES", columns: "ETAPA, ORDEM_EXECUCAO", unique: true },
   { name: "IDX_LARA_REGUA_EXEC", table: "LARA_REGUA_EXECUCOES", columns: "ETAPA, DATA_HORA_EXECUCAO" },
   { name: "UX_LARA_CFG_CHAVE", table: "LARA_CONFIGURACOES", columns: "CHAVE", unique: true },
+  // LARA_INTEGRACOES_LOG: busca por tipo de integração (ai-logs, regua-scheduler, etc.)
   { name: "IDX_LARA_INT_IDEMP", table: "LARA_INTEGRACOES_LOG", columns: "IDEMPOTENCY_KEY" },
   { name: "IDX_LARA_INT_CREATED", table: "LARA_INTEGRACOES_LOG", columns: "CREATED_AT" },
+  { name: "IDX_LARA_INT_INTEGRACAO", table: "LARA_INTEGRACOES_LOG", columns: "INTEGRACAO, TIPO, CREATED_AT" },
   { name: "UX_LARA_NEG_POL_ETAPA", table: "LARA_POLITICAS_NEGOCIACAO", columns: "ETAPA_REGUA", unique: true },
   { name: "IDX_LARA_FEEDBACK_WA", table: "LARA_FEEDBACK_INTERACOES", columns: "WA_ID, CREATED_AT" },
   { name: "IDX_LARA_FEEDBACK_RESULT", table: "LARA_FEEDBACK_INTERACOES", columns: "RESULTADO, CREATED_AT" },
@@ -312,6 +314,9 @@ const INDEXES: EnsureIndex[] = [
   { name: "UX_LARA_PIX_TXID_DUP", table: "LARA_PIX_COBRANCAS", columns: "TXID, DUPLICATA", unique: true },
   { name: "IDX_LARA_PIX_CODCLI", table: "LARA_PIX_COBRANCAS", columns: "CODCLI, CREATED_AT" },
   { name: "IDX_LARA_PIX_PAGO", table: "LARA_PIX_COBRANCAS", columns: "PAGO, CREATED_AT" },
+  // LARA_COB_MSG_LOG: índices adicionais para queries de follow-up e aprendizado de horário
+  { name: "IDX_LARA_MSG_DIR_ORIG", table: "LARA_COB_MSG_LOG", columns: "DIRECTION, ORIGEM, SENT_AT" },
+  { name: "IDX_LARA_MSG_RECV_AT", table: "LARA_COB_MSG_LOG", columns: "CODCLI, DIRECTION, RECEIVED_AT" },
 ];
 
 const REQUIRED_COLUMNS: Array<{ table: string; column: string; definition: string }> = [

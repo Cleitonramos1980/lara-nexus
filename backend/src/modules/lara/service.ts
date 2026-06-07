@@ -49,7 +49,7 @@ import {
   type OracleOpenTitleRow,
   type PixCobrancaRow,
 } from "./oracleRepository.js";
-import { laraOperationalStore } from "./operationalStore.js";
+import { laraOperationalStore, getOracleFallbackState } from "./operationalStore.js";
 import { paginateRows } from "./pagination.js";
 import { classifyIntentWithAiFallback, getIntentClassifierHealthSnapshot } from "./nluClassifier.js";
 import { chooseNextBestAction } from "./nextBestAction.js";
@@ -2351,14 +2351,26 @@ export class LaraService {
     }
 
     const webhookLimit = Number(await laraOperationalStore.getConfiguracao("RATE_LIMIT_WEBHOOK_POR_MIN") ?? "60");
+    const fallback = getOracleFallbackState();
+    const bancoLaraStatus = fallback.emFallback ? "degradado" : "operacional";
+    const bancoLaraDetail = fallback.emFallback
+      ? `MODO RAM ATIVO desde ${fallback.desde?.toISOString() ?? "desconhecido"} — ${fallback.totalEventos} evento(s). DADOS SERAO PERDIDOS NO RESTART.`
+      : "Tabelas LARA_* disponíveis (Oracle ativo)";
+
     return {
       componentes: [
         { label: "Oracle / WinThor", status: healthOracle.status, detail: healthOracle.detalhe },
-        { label: "Banco operacional Lara", status: "operacional", detail: "Tabelas LARA_* disponÃ­veis" },
+        { label: "Banco operacional Lara", status: bancoLaraStatus, detail: bancoLaraDetail },
         { label: "Webhooks WhatsApp/n8n", status: "operacional", detail: `Rate limit ${webhookLimit}/min` },
         { label: "Classificador IA (OpenAI+fallback)", status: classifierStatus, detail: classifierDetail },
-        { label: "Backend / API", status: "operacional", detail: "Fastify em execuÃ§Ã£o" },
+        { label: "Backend / API", status: "operacional", detail: "Fastify em execução" },
       ],
+      oracle_fallback: {
+        em_fallback: fallback.emFallback,
+        desde: fallback.desde?.toISOString() ?? null,
+        total_eventos: fallback.totalEventos,
+        ultimo_erro: fallback.ultimoErro || null,
+      },
     };
   }
 
