@@ -654,6 +654,34 @@ export async function laraRoutes(app: FastifyInstance) {
     return laraService.listLogs(query);
   });
 
+  // Logs dedicados de IA (OpenAI) com detalhes de request/response
+  app.get("/api/lara/ai-logs", async (req) => {
+    const { limit } = (req.query ?? {}) as { limit?: string };
+    const limitNum = Math.max(1, Math.min(2000, Number(limit ?? 200)));
+    const rows = await laraOperationalStore.listIntegrationLogs("openai", limitNum);
+    return rows.map((row) => {
+      let reqParsed: Record<string, unknown> = {};
+      let resParsed: Record<string, unknown> = {};
+      try { reqParsed = JSON.parse(row.request_json); } catch { /* noop */ }
+      try { resParsed = JSON.parse(row.response_json); } catch { /* noop */ }
+      return {
+        id:              row.id,
+        created_at:      row.created_at,
+        tipo:            row.tipo,
+        status:          row.status_operacao,
+        erro:            row.erro_resumo || null,
+        model:           reqParsed.model ?? "gpt-4o-mini",
+        intent:          reqParsed.intent ?? null,
+        action:          reqParsed.action ?? null,
+        total:           reqParsed.total ?? null,
+        titulos:         reqParsed.titulos ?? null,
+        provider:        resParsed.provider ?? "openai",
+        request_id:      resParsed.request_id ?? null,
+        message_preview: resParsed.message_preview ?? null,
+      };
+    });
+  });
+
   app.get("/api/lara/compliance/auditoria", async (req) => {
     const query = listComplianceAuditQuerySchema.parse(req.query);
     return laraService.listComplianceAuditPaged(query);

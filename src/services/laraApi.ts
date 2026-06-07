@@ -427,6 +427,26 @@ export function getLogs(filters?: {
   return apiRequest<LogItem[]>(withQuery("/lara/logs", filters));
 }
 
+export type AiLogItem = {
+  id: string;
+  created_at: string;
+  tipo: string;
+  status: string;
+  erro: string | null;
+  model: string;
+  intent: string | null;
+  action: string | null;
+  total: number | null;
+  titulos: number | null;
+  provider: string;
+  request_id: string | null;
+  message_preview: string | null;
+};
+
+export function getAiLogs(limit = 200) {
+  return apiRequest<AiLogItem[]>(`/lara/ai-logs?limit=${limit}`);
+}
+
 export function getConfiguracoes() {
   return apiRequest<{
     templates?: Array<unknown>;
