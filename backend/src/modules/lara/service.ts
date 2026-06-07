@@ -5480,7 +5480,20 @@ export class LaraService {
           ? promessaItems
           : titulos.map((t) => ({ titulo: t, dataPrometida: globalDate }));
 
-      // Registra uma promessa por par (tÃ­tulo, data)
+      // Cancela promessas abertas anteriores para os mesmos titulos
+      // Evita que o cliente receba PIX duplicado em datas diferentes
+      const promessasAbertas = await laraOperationalStore.listPromessas();
+      const duplicatasNovas = new Set(itemsToRegister.map((i) => i.titulo.duplicata));
+      for (const p of promessasAbertas) {
+        if (!['pendente', 'followup_realizado'].includes(p.status)) continue;
+        if (Number(p.codcli ?? 0) !== Number(cliente.codcli)) continue;
+        const dups = String(p.duplicatas || '').split(',').map((d) => d.trim());
+        if (dups.some((d) => duplicatasNovas.has(d))) {
+          await laraOperationalStore.updatePromessaStatus(p.id, 'cancelada').catch(() => {});
+        }
+      }
+
+      // Registra uma promessa por par (titulo, data)
       for (const item of itemsToRegister) {
         await this.registrarPromessa({
           wa_id: waId,
@@ -5490,7 +5503,7 @@ export class LaraService {
           valor_total: item.titulo.valor,
           data_prometida: item.dataPrometida,
           observacao: messageText,
-          origem: "whatsapp-inbound",
+          origem: 'whatsapp-inbound',
         });
       }
 

@@ -32,10 +32,17 @@ const humanIntentPatterns = [
 const optOutIntentPatterns = [
   /\bpare\b/,
   /\bparar\b/,
-  /\bn[aã]o (quero|desejo) (mais )?(mensagem|mensagens|contato)\b/,
+  /\bstop\b/,                                          // inglês comum em WhatsApp
+  /\bsair\b/,
+  /\bcancelar\s+(mensagem|contato|cobran[cç]a)\b/,
+  /\btira\s+(meu\s+)?(nome|n[uú]mero)\b/,             // "tira meu nome da lista"
+  /\bme\s+(tira|remove|exclui)\b/,
+  /\bn[aã]o\s+(quero|desejo)\s+(mais\s+)?(mensagem|mensagens|contato|cobran[cç]a)\b/,
   /\bremover\b/,
   /\bdescadastrar\b/,
   /\bopt[- ]?out\b/,
+  /\bchega\s+de\s+mensagem\b/,
+  /\bme\s+bloquei[ao]\b/,
 ];
 
 const promessaIntentPatterns = [
@@ -210,8 +217,7 @@ const negociacaoIntentPatterns = [
   /\bparcelar\b/,
   /\bparcelamento\b/,
   /\bnegociar\b/,
-  /\bnegociação\b/,
-  /\bnegociacao\b/,
+  /\bnegociac[aã]o\b/,
   /\bdesconto\b/,
   /\bacordo\b/,
   /\bprazo\b/,
@@ -219,6 +225,15 @@ const negociacaoIntentPatterns = [
   /\bpagar em partes\b/,
   /\bdivid(ir|er) o pagamento\b/,
   /\bcondi[cç][aã]o especial\b/,
+  // Dificuldade financeira sem data — deve acionar negociação, não resposta genérica
+  /\bn[aã]o (tenho|sei) (uma )?(data|quando|prazo)\b/,
+  /\bn[aã]o (tenho|possuo) (dinheiro|condi[cç][oõ]es|recursos)\b/,
+  /\bsem condi[cç][oõ]es\b/,
+  /\bestou (desempregad[ao]|apertad[ao]|sem\s+dinheiro)\b/,
+  /\bpassando (por )?(dificuldade|aperto)\b/,
+  /\bn[aã]o consigo (pagar|quitar) (agora|no momento|esse mes)\b/,
+  /\bsituac[aã]o (difícil|dificil|apertada)\b/,
+  /\bperdi\s+(emprego|trabalho|renda)\b/,
 ];
 
 // Exige contexto positivo explícito — evita falso-positivo em frases como "nao quero continuar"
