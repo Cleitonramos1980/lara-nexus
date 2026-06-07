@@ -38,7 +38,7 @@ export type BanditRecommendation = {
 const ALPHA_PRIOR = 1;
 const BETA_PRIOR = 1;
 const MIN_ARMS_FOR_BANDIT = 3;   // precisa de pelo menos 3 ações com dados para ativar bandit
-const SYNC_INTERVAL_MS = 5 * 60 * 1000; // sincroniza com DB a cada 5 min
+const SYNC_INTERVAL_MS = 60 * 60 * 1000; // sincroniza com DB a cada 1 hora
 
 // ─── Estado em memória (cache quente) ────────────────────────────────────────
 // Chave: `${pattern_key}:${action}`

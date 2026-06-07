@@ -13,10 +13,11 @@ type LoggerLike = {
 
 type PromiseFollowupSettings = {
   enabled: boolean;
-  intervalMin: number;
+  timeZone: string;
 };
 
-const DEFAULT_INTERVAL_MIN = 10;
+// Roda 1x por dia após 9h (horário de Manaus)
+const DISPATCH_HOUR = 9;
 const TICK_MS = 60_000;
 
 function parseBooleanConfig(value: string | null | undefined, fallback: boolean): boolean {
@@ -50,14 +51,38 @@ function formatDateBr(value: string): string {
 }
 
 async function loadSettings(): Promise<PromiseFollowupSettings> {
-  const [enabledCfg, intervalCfg] = await Promise.all([
+  const [enabledCfg, tzCfg] = await Promise.all([
     laraOperationalStore.getConfiguracao("LARA_PROMESSA_FOLLOWUP_ATIVO"),
-    laraOperationalStore.getConfiguracao("LARA_PROMESSA_FOLLOWUP_INTERVAL_MIN"),
+    laraOperationalStore.getConfiguracao("LARA_SYNC_DAILY_TIMEZONE"),
   ]);
   return {
     enabled: parseBooleanConfig(enabledCfg, true),
-    intervalMin: parseNumberConfig(intervalCfg, DEFAULT_INTERVAL_MIN, 1, 180),
+    timeZone: String(tzCfg ?? "America/Manaus"),
   };
+}
+
+function getLocalHour(timeZone: string): number {
+  try {
+    const parts = new Intl.DateTimeFormat("en-CA", {
+      timeZone,
+      hour: "2-digit",
+      hour12: false,
+    }).formatToParts(new Date());
+    return Number(parts.find((p) => p.type === "hour")?.value ?? "0");
+  } catch {
+    return new Date().getHours();
+  }
+}
+
+function getLocalDateKey(timeZone: string): string {
+  try {
+    return new Intl.DateTimeFormat("en-CA", {
+      timeZone,
+      year: "numeric", month: "2-digit", day: "2-digit",
+    }).format(new Date());
+  } catch {
+    return new Date().toISOString().slice(0, 10);
+  }
 }
 
 function isOpenPromiseStatus(status: string): boolean {
@@ -194,7 +219,7 @@ async function dispatchPaymentForPromise(
 export function startLaraPromiseFollowupScheduler(logger?: LoggerLike): () => void {
   let stopped = false;
   let running = false;
-  let lastRunAtMs = 0;
+  let lastRunDateKey = ""; // controla execução única por dia
 
   const runTick = async (): Promise<void> => {
     if (stopped || running) return;
@@ -202,7 +227,14 @@ export function startLaraPromiseFollowupScheduler(logger?: LoggerLike): () => vo
     try {
       const settings = await loadSettings();
       if (!settings.enabled) return;
-      if (Date.now() - lastRunAtMs < settings.intervalMin * 60_000) return;
+
+      // Só executa após 9h no fuso configurado
+      const hour = getLocalHour(settings.timeZone);
+      if (hour < DISPATCH_HOUR) return;
+
+      // Só executa 1x por dia
+      const todayKey = getLocalDateKey(settings.timeZone);
+      if (lastRunDateKey === todayKey) return;
 
       const today = dateToIsoDate(new Date());
       const promessas = await laraOperationalStore.listPromessas();
@@ -264,22 +296,25 @@ export function startLaraPromiseFollowupScheduler(logger?: LoggerLike): () => vo
         }
       }
 
-      // Identifica promessas já vencidas há 2+ dias e que ainda não foram pagas — marcada como não cumprida
-      const twoDaysAgo = new Date(Date.now() - 2 * 24 * 60 * 60 * 1000);
-      const twoDaysAgoStr = dateToIsoDate(twoDaysAgo);
+      // Promessas vencidas ontem (2º dia sem pagamento) → marca como não cumprida
+      // Lógica: se a promessa era para hoje ou antes, e o follow-up já foi enviado,
+      // então o cliente não pagou → nao_cumprida
+      const yesterday = new Date(Date.now() - 1 * 24 * 60 * 60 * 1000);
+      const yesterdayStr = dateToIsoDate(yesterday);
       const allOpenPromessas = await laraOperationalStore.listPromessas();
       for (const p of allOpenPromessas) {
         if (!isOpenPromiseStatus(p.status)) continue;
+        if (p.status === "followup_realizado") continue; // já foi trabalhada hoje — aguarda confirmação
         const dataPrometida = dateToIsoDate(p.data_prometida);
-        if (!dataPrometida || dataPrometida > twoDaysAgoStr) continue;
-        // Promessa vencida há mais de 2 dias sem confirmação de pagamento → não cumprida
+        if (!dataPrometida || dataPrometida > yesterdayStr) continue;
+        // Promessa vencida ontem ou antes, sem confirmação → não cumprida
         if (p.wa_id) {
           void markPromiseBroken(p.wa_id, p.id).catch(() => {});
         }
         await laraOperationalStore.updatePromessaStatus(p.id, "nao_cumprida").catch(() => {});
       }
 
-      lastRunAtMs = Date.now();
+      lastRunDateKey = todayKey;
       if (processed > 0 || skipped > 0 || semWa > 0 || erros > 0) {
         logger?.info?.(
           {

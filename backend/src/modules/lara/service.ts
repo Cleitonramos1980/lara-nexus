@@ -248,7 +248,14 @@ type LaraResponseComposeInput = {
   policyReason: string;
   correlationId?: string;
   historicoConversa?: Array<{ role: "cliente" | "lara"; texto: string }>;
-  conversationSummary?: string; // resumo semÃ¢ntico gerado pelo AI summarizer
+  conversationSummary?: string;
+  contextualInsights?: {
+    mencionou_titulo_especifico: boolean;
+    mencionou_data_pagamento: boolean;
+    confirmacao_por_contexto: boolean;
+    intent_original: string;
+    intent_refinado: string;
+  };
 };
 
 type LaraResponseComposeResult = {
@@ -2750,6 +2757,89 @@ export class LaraService {
     return result.length > 4096 ? `${result.slice(0, 4093)}...` : result;
   }
 
+  /**
+   * Gera resposta LLM para handlers de intent fixo (optin, optout, pagamento_confirmado)
+   * sem precisar do objeto completo LaraCliente. Fallback imediato para o texto hardcoded.
+   */
+  private async composeRespostaIntent(params: {
+    acao: "optin" | "optout" | "pagamento_confirmado";
+    waId: string;
+    nomeCliente?: string;
+    mensagemOriginal: string;
+    fallback: string;
+    historicoConversa?: Array<{ role: "cliente" | "lara"; texto: string }>;
+  }): Promise<string> {
+    const apiKey = String(env.OPENAI_API_KEY ?? "").trim();
+    if (!env.LARA_AI_RESPONSE_ENABLED || !apiKey) return params.fallback;
+
+    const nome = params.nomeCliente?.split(" ")[0] || "cliente";
+    const systemPrompts: Record<string, string> = {
+      optin: [
+        "Voce e Lara, assistente de cobrancas. O cliente acabou de REATIVAR o contato depois de ter pedido pausa.",
+        "Seja caloroso, genuino e breve. Confirme que vai continuar ajudando. Maximo 3 linhas.",
+        "Nao use markdown. Nao mencione dividas neste momento — apenas boas-vindas.",
+        `Use o nome '${nome}' se adequado.`,
+      ].join("\n"),
+      optout: [
+        "Voce e Lara, assistente de cobrancas. O cliente acabou de pedir para PARAR de receber mensagens.",
+        "Confirme que o pedido foi registrado. Seja respeitoso e breve. Maximo 3 linhas.",
+        "Informe que ele pode voltar quando quiser respondendo CONTINUAR.",
+        "Nao tente vender nem negociar — apenas confirmar e respeitar a decisao.",
+      ].join("\n"),
+      pagamento_confirmado: [
+        "Voce e Lara, assistente de cobrancas. O cliente disse que ja efetuou o pagamento.",
+        "Agradeca genuinamente e informe que a equipe vai verificar. Maximo 3 linhas.",
+        "NUNCA confirme que o titulo foi baixado — diga apenas que vao verificar.",
+        `Use o nome '${nome}' se adequado.`,
+      ].join("\n"),
+    };
+
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 6000);
+    try {
+      const baseUrl = String(env.OPENAI_BASE_URL || "https://api.openai.com/v1").replace(/\/+$/, "");
+      const hist = (params.historicoConversa ?? []).slice(-6).map((h, i) => ({
+        turno: i + 1,
+        remetente: h.role === "cliente" ? "CLIENTE" : "LARA",
+        texto: h.texto.slice(0, 200),
+      }));
+      const res = await fetch(`${baseUrl}/responses`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          model: env.OPENAI_MODEL,
+          input: [
+            { role: "system", content: [{ type: "input_text", text: systemPrompts[params.acao] }] },
+            { role: "user", content: [{ type: "input_text", text: JSON.stringify({
+              mensagem_do_cliente: params.mensagemOriginal,
+              historico_recente: hist,
+            }) }] },
+          ],
+          max_output_tokens: 120,
+        }),
+        signal: controller.signal,
+      });
+      clearTimeout(timer);
+      if (!res.ok) return params.fallback;
+      const payload = await res.json().catch(() => ({})) as Record<string, unknown>;
+      const output = (payload.output as unknown[]) ?? [];
+      const texts: string[] = [];
+      for (const item of output) {
+        const content = (item as Record<string, unknown>).content as unknown[];
+        if (!Array.isArray(content)) continue;
+        for (const part of content) {
+          const p = part as Record<string, unknown>;
+          if (typeof p.text === "string" && p.text.trim()) texts.push(p.text.trim());
+        }
+      }
+      const generated = sanitizeOutboundMessage(texts.join("").trim(), params.fallback);
+      return generated || params.fallback;
+    } catch {
+      clearTimeout(timer);
+      return params.fallback;
+    }
+  }
+
   private async composeRespostaCobranca(input: LaraResponseComposeInput): Promise<LaraResponseComposeResult> {
     const fallbackMessage = sanitizeOutboundMessage(input.fallbackMessage, "Recebemos sua mensagem e estamos processando.");
     const aiEnabled = Boolean(env.LARA_AI_RESPONSE_ENABLED);
@@ -2891,6 +2981,22 @@ export class LaraService {
       fallback_base: fallbackMessage,
       instrucoes_para_este_turno: instrucoesPorEstagio[estagio] ?? instrucoesPorEstagio.conducao,
       ...(input.conversationSummary ? { resumo_semantico_da_conversa: input.conversationSummary } : {}),
+      ...(input.contextualInsights ? {
+        refinamento_contextual: {
+          cliente_mencionou_titulo_especifico: input.contextualInsights.mencionou_titulo_especifico,
+          cliente_mencionou_data_pagamento: input.contextualInsights.mencionou_data_pagamento,
+          confirmacao_contextual_detectada: input.contextualInsights.confirmacao_por_contexto,
+          intent_antes_do_refinamento: input.contextualInsights.intent_original,
+          intent_apos_refinamento: input.contextualInsights.intent_refinado,
+          instrucao_extra: input.contextualInsights.mencionou_titulo_especifico
+            ? "O cliente mencionou um titulo especifico — responda referenciando esse titulo diretamente."
+            : input.contextualInsights.mencionou_data_pagamento
+              ? "O cliente indicou uma data de pagamento — confirme a data e registre a promessa."
+              : input.contextualInsights.confirmacao_por_contexto
+                ? "O cliente confirmou a intencao de pagar — encaminhe imediatamente para o pagamento."
+                : undefined,
+        },
+      } : {}),
     };
 
     const baseUrl = String(env.OPENAI_BASE_URL || "https://api.openai.com/v1").replace(/\/+$/, "");
@@ -4736,7 +4842,21 @@ export class LaraService {
           origem: "whatsapp-inbound",
           responsavel: "Lara Automacao",
         });
-        const msgRetorno = "Que otimo! Seu contato foi reativado. Continuaremos te informando sobre seus titulos em aberto. Para parar de receber mensagens a qualquer momento, basta responder *PARAR*.";
+        const msgFallbackOptin = "Que otimo! Seu contato foi reativado. Continuaremos te informando sobre seus titulos em aberto. Para parar de receber mensagens a qualquer momento, basta responder PARAR.";
+        const ctxOptin = await this.findRecentContextByWa(waId).catch(() => null);
+        const clienteOptin = ctxOptin?.codcli ? await this.getCliente(ctxOptin.codcli).catch(() => null) : null;
+        const histOptin = (await laraOperationalStore.listMessagesByWaId(waId).catch(() => [])).slice(-8).map((m) => ({
+          role: String(m.direction).toUpperCase() === "INBOUND" ? "cliente" as const : "lara" as const,
+          texto: String(m.message_text || ""),
+        }));
+        const msgRetorno = await this.composeRespostaIntent({
+          acao: "optin",
+          waId,
+          nomeCliente: clienteOptin?.cliente,
+          mensagemOriginal: messageText,
+          fallback: msgFallbackOptin,
+          historicoConversa: histOptin,
+        });
         if (isUazapiConfigured()) {
           await uazapiSendText(waId, msgRetorno).catch(() => {});
         } else if (isWhatsAppConfigured()) {
@@ -4782,14 +4902,27 @@ export class LaraService {
         responsavel: "Lara Automacao",
         status: "pendente",
       });
-      const msgAgradecimento = "Obrigado pela confirmacao! Nossa equipe ira verificar o pagamento em breve. Apos a confirmacao, seu titulo sera baixado. Qualquer duvida, estamos aqui!";
+      const fallbackAgradecimento = "Obrigado pela confirmacao! Nossa equipe ira verificar o pagamento em breve. Apos a confirmacao, seu titulo sera baixado. Qualquer duvida, estamos aqui!";
+      const clientePago = codcliPago ? await this.getCliente(codcliPago).catch(() => null) : null;
+      const histPago = (await laraOperationalStore.listMessagesByWaId(waId).catch(() => [])).slice(-8).map((m) => ({
+        role: String(m.direction).toUpperCase() === "INBOUND" ? "cliente" as const : "lara" as const,
+        texto: String(m.message_text || ""),
+      }));
+      const msgAgradecimento = await this.composeRespostaIntent({
+        acao: "pagamento_confirmado",
+        waId,
+        nomeCliente: clientePago?.cliente,
+        mensagemOriginal: messageText,
+        fallback: fallbackAgradecimento,
+        historicoConversa: histPago,
+      });
       if (isUazapiConfigured()) {
         await uazapiSendText(waId, msgAgradecimento).catch(() => {});
       } else if (isWhatsAppConfigured()) {
         await sendTextMessage(waId, msgAgradecimento).catch(() => {});
       }
       await laraOperationalStore.addMessageLog({
-        wa_id: waId, codcli: codcliPago, cliente: "", telefone,
+        wa_id: waId, codcli: codcliPago, cliente: clientePago?.cliente ?? "", telefone,
         message_text: msgAgradecimento, direction: "OUTBOUND",
         origem: "whatsapp-inbound", etapa: ctxPago?.etapa ?? "", duplics: ctxPago?.duplicatas?.join(", ") ?? "",
         valor_total: 0, payload_json: JSON.stringify({ acao: "pagamento_confirmado_cliente" }), status: "enviado",
@@ -4830,7 +4963,19 @@ export class LaraService {
         origem: "whatsapp-inbound",
         responsavel: "Lara Automacao",
       });
-      const msgOptout = "Solicitacao registrada. Nao enviaremos novas mensagens automaticas para este numero. Se quiser voltar a receber nossas comunicacoes, basta responder *CONTINUAR* a qualquer momento.";
+      // Opt-out: ação já executada (setOptout + createCase). Só o texto varia com LLM.
+      const fallbackOptout = "Solicitacao registrada. Nao enviaremos novas mensagens automaticas para este numero. Se quiser voltar a receber nossas comunicacoes, basta responder CONTINUAR a qualquer momento.";
+      const histOptout = (await laraOperationalStore.listMessagesByWaId(waId).catch(() => [])).slice(-6).map((m) => ({
+        role: String(m.direction).toUpperCase() === "INBOUND" ? "cliente" as const : "lara" as const,
+        texto: String(m.message_text || ""),
+      }));
+      const msgOptout = await this.composeRespostaIntent({
+        acao: "optout",
+        waId,
+        mensagemOriginal: messageText,
+        fallback: fallbackOptout,
+        historicoConversa: histOptout,
+      });
       if (isUazapiConfigured()) {
         await uazapiSendText(waId, msgOptout).catch(() => {});
       } else if (isWhatsAppConfigured()) {
@@ -5566,6 +5711,13 @@ export class LaraService {
         texto: String(m.message_text || ""),
       })),
       conversationSummary: convSummaryStr,
+      contextualInsights: {
+        mencionou_titulo_especifico: hasMentionedTitulo,
+        mencionou_data_pagamento: hasSchedulingWords,
+        confirmacao_por_contexto: shouldSendByContext,
+        intent_original: intent,
+        intent_refinado: nbaIntent,
+      },
     });
     const defaultMessage = defaultReply.message;
     await laraOperationalStore.addMessageLog({
