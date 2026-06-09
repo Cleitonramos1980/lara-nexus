@@ -1249,13 +1249,13 @@ export class LaraService {
         if (titulos.length === 1) {
           cabecalho =
             `Ola ${nome}! Identificamos um titulo em aberto:\n\n` +
-            `ðŸ"‹ Duplicata: ${t0.duplicata}\n` +
-            `ðŸ'° Valor: ${formatMoneyBr(t0.valor)}\n` +
-            `ðŸ"… Vencimento: ${formatDateBr(t0.vencimento)}\n\n` +
+            `Duplicata: ${t0.duplicata}\n` +
+            `Valor: ${formatMoneyBr(t0.valor)}\n` +
+            `Vencimento: ${formatDateBr(t0.vencimento)}\n\n` +
             `Para facilitar, segue o PIX no valor de *${totalFmt}*:`;
         } else {
           const linhas = titulos.slice(0, 5).map((t) =>
-            `â€¢ ${t.duplicata} - ${formatMoneyBr(t.valor)} (venc. ${formatDateBr(t.vencimento)})`
+            `- ${t.duplicata} - ${formatMoneyBr(t.valor)} (venc. ${formatDateBr(t.vencimento)})`
           ).join("\n");
           cabecalho =
             `Ola ${nome}! Voce possui ${titulos.length} titulo(s) em aberto totalizando *${formatMoneyBr(total)}*:\n\n` +
@@ -1278,13 +1278,13 @@ export class LaraService {
         if (titulos.length === 1) {
           texto =
             `Ola ${nome}! Identificamos um titulo em aberto:\n\n` +
-            `ðŸ"‹ Duplicata: ${t0.duplicata}\n` +
-            `ðŸ'° Valor: ${formatMoneyBr(t0.valor)}\n` +
-            `ðŸ"… Vencimento: ${formatDateBr(t0.vencimento)}\n\n` +
+            `Duplicata: ${t0.duplicata}\n` +
+            `Valor: ${formatMoneyBr(t0.valor)}\n` +
+            `Vencimento: ${formatDateBr(t0.vencimento)}\n\n` +
             `Para regularizar, responda *BOLETO* ou *PIX* e te envio o codigo de pagamento.`;
         } else {
           const linhas = titulos.slice(0, 5).map((t) =>
-            `â€¢ ${t.duplicata} - ${formatMoneyBr(t.valor)} (venc. ${formatDateBr(t.vencimento)})`
+            `- ${t.duplicata} - ${formatMoneyBr(t.valor)} (venc. ${formatDateBr(t.vencimento)})`
           ).join("\n");
           texto =
             `Ola ${nome}! Voce possui ${titulos.length} titulo(s) em aberto totalizando *${formatMoneyBr(total)}*:\n\n` +
@@ -2736,7 +2736,7 @@ export class LaraService {
       const atrasoInfo = Number(t.dias_atraso) > 0
         ? ` - ${t.dias_atraso} dias em atraso`
         : " - a vencer";
-      linhas.push(`â€¢ Duplic. ${t.duplicata} | ${valorFmt} | Venc. ${vencFmt}${atrasoInfo}`);
+      linhas.push(`- Duplic. ${t.duplicata} | ${valorFmt} | Venc. ${vencFmt}${atrasoInfo}`);
     }
 
     if (titulos.length > 5) {
@@ -5635,7 +5635,7 @@ export class LaraService {
           .map((item) => {
             const vStr = item.titulo.valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
             const [, mm, dd] = item.dataPrometida.split("-");
-            return `â€¢ Duplic. ${item.titulo.duplicata} (${vStr}) - dia ${dd}/${mm}`;
+            return `- Duplic. ${item.titulo.duplicata} (${vStr}) - dia ${dd}/${mm}`;
           })
           .join("\n");
         const totalMulti = roundMoney(itemsToRegister.reduce((s, i) => s + i.titulo.valor, 0));
@@ -5670,7 +5670,7 @@ export class LaraService {
       const saudacao = saudacaoHoraria(timezone);
       const nomeCliente = cliente.cliente.split(" ")[0];
       const valorStr = total.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-      const msgOpcoes = `${saudacao}, ${nomeCliente}! Para regularizar seu saldo de ${valorStr}, posso gerar:\n\nâ€¢ *PIX copia e cola* - pagamento instantÃ¢neo\nâ€¢ *Boleto bancario* - vencimento em 1 dia util\n\nQual prefere? Responda *PIX* ou *Boleto*.`;
+      const msgOpcoes = `${saudacao}, ${nomeCliente}! Para regularizar seu saldo de ${valorStr}, posso gerar:\n\n*PIX copia e cola* - pagamento instantaneo\n*Boleto bancario* - vencimento em 1 dia util\n\nQual prefere? Responda *PIX* ou *Boleto*.`;
       await laraOperationalStore.addMessageLog({
         wa_id: waId,
         codcli: Number(cliente.codcli),
