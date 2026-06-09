@@ -17,6 +17,7 @@ import { laraService } from "../modules/lara/service.js";
 import {
   uazapiService,
   sendText,
+  sendTyping,
 } from "../modules/lara/uazapiService.js";
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -212,6 +213,9 @@ export async function uazapiRoutes(app: FastifyInstance): Promise<void> {
           const receivedAt = msg.messageTimestamp
             ? new Date(msg.messageTimestamp).toISOString()
             : new Date().toISOString();
+
+          // Mostra "Digitando..." enquanto o LLM processa (cancelado ao enviar a resposta)
+          sendTyping(waId, 20000).catch(() => {});
 
           // Processar via engine da Lara (mesmo fluxo do canal Meta)
           const result = await laraService.processarMensagemInbound({

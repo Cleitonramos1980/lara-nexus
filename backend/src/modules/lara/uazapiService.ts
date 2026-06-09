@@ -320,6 +320,20 @@ export async function getWebhookConfig(): Promise<{ ok: boolean; data?: unknown;
   return { ok: result.ok, data: result.data ?? undefined, error: result.error ?? undefined };
 }
 
+/**
+ * Exibe indicador "Digitando..." no chat do cliente enquanto o LLM processa.
+ * O WhatsApp cancela automaticamente ao enviar a próxima mensagem.
+ * @param number - número no formato 5592999999999
+ * @param delayMs - duração máxima do indicador em ms (default 15s, máx 300s)
+ */
+export async function sendTyping(number: string, delayMs = 15000): Promise<void> {
+  await _uazapiFetch("/message/presence", "POST", {
+    number,
+    presence: "composing",
+    delay: Math.min(delayMs, 300000),
+  });
+}
+
 // ─── Singleton ────────────────────────────────────────────────────────────────
 
 export const uazapiService = {
@@ -329,6 +343,7 @@ export const uazapiService = {
   sendMedia,
   sendMenu,
   sendRequestPayment,
+  sendTyping,
   configureWebhook,
   getWebhookConfig,
 } as const;
