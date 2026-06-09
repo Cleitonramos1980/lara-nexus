@@ -82,8 +82,14 @@ const envSchema = z.object({
   UAZAPI_BASE_URL: z.string().url().optional(),
   UAZAPI_TOKEN: z.string().optional(),
   UAZAPI_WEBHOOK_SECRET: z.string().optional(),
-  // Piloto: lista de codcli autorizados para envio (vazio = sem restrição)
+  // Piloto: lista de codcli autorizados para envio (vazio = sem restricao)
   LARA_PILOT_CODCLIS: z.string().optional(),
+  // Alertas operacionais via WhatsApp (numero no formato 5592999999999)
+  LARA_ALERT_WHATSAPP_NUMBER: z.string().optional(),
+  // Quantas falhas consecutivas de sync antes de alertar (default: 2)
+  LARA_ALERT_SYNC_FALHAS_MAX: z.coerce.number().int().min(1).max(10).default(2),
+  // Cooldown entre alertas de escalacao humana em minutos (default: 10)
+  LARA_ALERT_HUMANO_COOLDOWN_MIN: z.coerce.number().int().min(1).max(60).default(10),
 });
 
 export type Env = z.infer<typeof envSchema>;

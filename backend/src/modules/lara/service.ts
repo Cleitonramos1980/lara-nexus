@@ -87,6 +87,7 @@ import {
   toNumber,
   saudacaoHoraria,
 } from "./utils.js";
+import { alertarEscalacaoHumana } from "./laraAlerts.js";
 
 type SyncResult = {
   totalTitulos: number;
@@ -1856,7 +1857,17 @@ export class LaraService {
   }
 
   async createCase(input: Parameters<typeof laraOperationalStore.createCase>[0]): Promise<LaraCaseItem> {
-    return laraOperationalStore.createCase(input);
+    const caseItem = await laraOperationalStore.createCase(input);
+    if (input.tipo_case === "ESCALACAO_HUMANA") {
+      void alertarEscalacaoHumana({
+        waId: String(input.wa_id ?? ""),
+        nomeCliente: input.cliente,
+        codcli: input.codcli,
+        prioridade: input.status === "urgente" ? "critica" : undefined,
+        motivo: input.detalhe,
+      });
+    }
+    return caseItem;
   }
 
   async listOptouts(filters?: {

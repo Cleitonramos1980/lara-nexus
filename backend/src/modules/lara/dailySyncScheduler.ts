@@ -2,6 +2,7 @@
 import { isOracleEnabled } from "../../db/oracle.js";
 import { laraOperationalStore } from "./operationalStore.js";
 import { laraService } from "./service.js";
+import { registrarSyncSucesso, registrarSyncFalha } from "./laraAlerts.js";
 
 type LoggerLike = {
   info?: (payload: Record<string, unknown>, message?: string) => void;
@@ -154,6 +155,7 @@ export function startLaraDailySyncScheduler(logger?: LoggerLike): () => void {
       });
 
       retryAfterMs = 0;
+      registrarSyncSucesso();
       logger?.info?.(
         {
           modulo: "lara-sync",
@@ -166,6 +168,7 @@ export function startLaraDailySyncScheduler(logger?: LoggerLike): () => void {
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       retryAfterMs = Date.now() + RETRY_AFTER_ERROR_MS;
+      void registrarSyncFalha(message);
 
       await laraOperationalStore.addIntegrationLog({
         integracao: "oracle-winthor",
