@@ -77,11 +77,13 @@ export async function chooseNextBestAction(input: NextBestActionInput): Promise<
     };
   }
 
-  // ── 4. Confiança baixa na classificação ──────────────────────────────────
-  if (input.confidence < 0.55) {
+  // ── 4. Confiança baixa em intent não-neutro → escalar ────────────────────
+  // Intent "neutro" com confidence 0.55 é esperado e tratado na regra 14.
+  // Só escala se classificou um intent específico mas com pouca certeza.
+  if (input.confidence < 0.55 && input.intent !== "neutro") {
     return {
       action: "escalar_humano",
-      reason: "Confiança baixa na classificação da intenção.",
+      reason: "Confiança baixa na classificação de intenção específica.",
       prioridade: "normal",
     };
   }
@@ -348,13 +350,25 @@ export async function chooseNextBestAction(input: NextBestActionInput): Promise<
     };
   }
 
-  // ── 14. Default: tudo que não foi claramente entendido → escala para humano ──
-  // Regra: nunca deixar o cliente sem atendimento real quando a intenção não
-  // é inequívoca. É preferível escalar uma vez a mais do que deixar um cliente
-  // em crise, com dúvida ou em disputa receber uma resposta automática genérica.
+  // ── 14. Intenção neutra em condição normal → LLM responde contextualmente ───
+  // Saudações, perguntas abertas e mensagens sem intent específico em contexto
+  // normal (etapa inicial/média, risco baixo/médio, sem stress crítico) devem
+  // ser respondidas pelo LLM (resposta_padrao), não escaladas imediatamente.
+  // Escalação preventiva apenas quando há sinais reais de risco (já tratados nas
+  // regras 2, 3 e 12 acima).
+  if (input.intent === "neutro") {
+    return {
+      action: "resposta_padrao",
+      reason: "Mensagem neutra sem sinal de risco. LLM interpreta contexto e responde.",
+      prioridade: "normal",
+      contexto: "intencao_nao_identificada",
+    };
+  }
+
+  // ── 15. Default final: intenção inesperada → escala como precaução ──────────
   return {
     action: "escalar_humano",
-    reason: "Intenção não identificada com clareza suficiente para resposta automática. Escalação preventiva.",
+    reason: "Intenção não mapeada em condição de risco. Escalação preventiva.",
     prioridade: "normal",
     contexto: "intencao_nao_identificada",
   };
