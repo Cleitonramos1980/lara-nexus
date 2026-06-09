@@ -2725,31 +2725,32 @@ export class LaraService {
     const totalFmt = Number(payload.total ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
     if (payload.tipo === "boleto") {
-      const partes = [`Segue o boleto atualizado. Valor total ${totalFmt}.`];
+      // Texto introdutório apenas — a linha digitável é enviada como segunda mensagem pelo webhook
       if (String(payload.linha_digitavel ?? "").trim()) {
-        partes.push("", "Linha digitavel:", payload.linha_digitavel);
+        return `Segue o boleto para pagamento no valor de ${totalFmt}.\nLinha digitavel:`;
       }
-      if (String(payload.url_boleto ?? "").trim()) {
-        partes.push(`URL boleto: ${payload.url_boleto}`);
-      }
-      return partes.join("\n");
+      return `Segue o boleto para pagamento no valor de ${totalFmt}.`;
     }
 
     if (payload.tipo === "bolepix") {
-      const partes = [`Segue o BolePix para pagamento no valor total de ${totalFmt}.`];
-      if (String(payload.pix_copia_cola ?? "").trim()) {
-        partes.push("", "PIX copia e cola:", payload.pix_copia_cola);
-      } else if (String(payload.linha_digitavel ?? "").trim()) {
-        partes.push("", "Linha digitavel:", payload.linha_digitavel);
+      // Texto introdutório apenas — o código PIX/linha é enviado como segunda mensagem pelo webhook
+      const temPix = String(payload.pix_copia_cola ?? "").trim();
+      const temLinha = String(payload.linha_digitavel ?? "").trim();
+      if (temPix) {
+        return `Segue o BolePix para pagamento no valor de ${totalFmt}.\nPIX copia e cola`;
       }
-      return partes.join("\n");
+      if (temLinha) {
+        return `Segue o BolePix para pagamento no valor de ${totalFmt}.\nLinha digitavel:`;
+      }
+      return `Segue o BolePix para pagamento no valor de ${totalFmt}.`;
     }
 
-    const partes = [`Segue PIX copia e cola para pagamento no valor de ${totalFmt}.`];
+    // PIX: retorna apenas o texto introdutório.
+    // O código PIX bruto é enviado como segunda mensagem separada pelo webhook (uazapi.ts).
     if (String(payload.pix_copia_cola ?? "").trim()) {
-      partes.push("", "PIX copia e cola:", payload.pix_copia_cola);
+      return `Segue PIX copia e cola para pagamento no valor de ${totalFmt}.\nPIX copia e cola`;
     }
-    return partes.join("\n");
+    return `Segue PIX copia e cola para pagamento no valor de ${totalFmt}.`;
   }
 
   private buildTitulosResumoForLlm(titulos: LaraTitulo[]): Array<Record<string, unknown>> {
