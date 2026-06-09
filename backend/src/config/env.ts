@@ -84,6 +84,9 @@ const envSchema = z.object({
   UAZAPI_WEBHOOK_SECRET: z.string().optional(),
   // Piloto: lista de codcli autorizados para envio (vazio = sem restricao)
   LARA_PILOT_CODCLIS: z.string().optional(),
+  // Token compartilhado para autenticar webhooks inbound (header x-lara-webhook-token)
+  // Se nao definido, webhooks inbound aceitam qualquer origem (inseguro em producao)
+  LARA_INBOUND_WEBHOOK_TOKEN: z.string().min(16).optional(),
   // Alertas operacionais via WhatsApp (numero no formato 5592999999999)
   LARA_ALERT_WHATSAPP_NUMBER: z.string().optional(),
   // Quantas falhas consecutivas de sync antes de alertar (default: 2)

@@ -46,6 +46,16 @@ import {
 // Ações que NÃO devem gerar resposta automática ao cliente
 const ACOES_SEM_REPLY = new Set(["optout_aplicado", "pausar_contato", "duplicado"]);
 
+// Valida token compartilhado nos webhooks inbound (ALTA-2)
+function assertInboundWebhookToken(req: FastifyRequest): boolean {
+  const configured = String(env.LARA_INBOUND_WEBHOOK_TOKEN ?? "").trim();
+  if (!configured) return true; // token nao configurado = aceita (backward compat)
+  const provided =
+    String(req.headers["x-lara-webhook-token"] ?? "").trim() ||
+    String((req.query as Record<string, unknown>)["token"] ?? "").trim();
+  return provided === configured;
+}
+
 async function sendWithRetry(
   waId: string,
   mensagem: string,
@@ -892,7 +902,10 @@ export async function laraRoutes(app: FastifyInstance) {
     });
   });
 
-  app.post("/api/lara/webhooks/whatsapp-inbound", async (req) => {
+  app.post("/api/lara/webhooks/whatsapp-inbound", async (req, reply) => {
+    if (!assertInboundWebhookToken(req)) {
+      return reply.status(401).send({ error: "Token de webhook invalido." });
+    }
     const body = webhookWhatsappInboundSchema.parse(req.body);
     await assertWebhookRateLimit(req, "whatsapp-inbound", {
       tenantId: body.tenant_id,
@@ -937,7 +950,10 @@ export async function laraRoutes(app: FastifyInstance) {
     return resultado;
   });
 
-  app.post("/api/lara/webhooks/whatsapp-status", async (req) => {
+  app.post("/api/lara/webhooks/whatsapp-status", async (req, reply) => {
+    if (!assertInboundWebhookToken(req)) {
+      return reply.status(401).send({ error: "Token de webhook invalido." });
+    }
     const body = webhookWhatsappStatusSchema.parse(req.body);
     await assertWebhookRateLimit(req, "whatsapp-status", { waId: body.wa_id });
     return laraService.registrarWebhookStatus({
@@ -951,7 +967,10 @@ export async function laraRoutes(app: FastifyInstance) {
     });
   });
 
-  app.post("/api/lara/webhooks/regua-resultado", async (req) => {
+  app.post("/api/lara/webhooks/regua-resultado", async (req, reply) => {
+    if (!assertInboundWebhookToken(req)) {
+      return reply.status(401).send({ error: "Token de webhook invalido." });
+    }
     await assertWebhookRateLimit(req, "regua-resultado");
     const body = webhookReguaResultadoSchema.parse(req.body);
     return laraService.registrarWebhookReguaResultado({
@@ -1014,14 +1033,16 @@ export async function laraRoutes(app: FastifyInstance) {
     return laraService.gerarPortalToken(body.codcli, body.wa_id);
   });
 
-  // Rota pública do portal (sem autenticação Lara)
-  app.get("/api/lara/portal/:token", { config: { skipLaraAuth: true } } as any, async (req) => {
-    const { token } = z.object({ token: z.string() }).parse(req.params);
+  // Rota pública do portal (sem autenticação Lara) — rate limit por IP para evitar enumeração
+  app.get("/api/lara/portal/:token", { config: { skipLaraAuth: true } } as any, async (req, reply) => {
+    await assertWebhookRateLimit(req, "portal-get", {});
+    const { token } = z.object({ token: z.string().min(10).max(128) }).parse(req.params);
     return laraService.getPortalData(token);
   });
 
-  app.post("/api/lara/portal/:token/pagar", { config: { skipLaraAuth: true } } as any, async (req) => {
-    const { token } = z.object({ token: z.string() }).parse(req.params);
+  app.post("/api/lara/portal/:token/pagar", { config: { skipLaraAuth: true } } as any, async (req, reply) => {
+    await assertWebhookRateLimit(req, "portal-pagar", {});
+    const { token } = z.object({ token: z.string().min(10).max(128) }).parse(req.params);
     const body = z.object({
       forma: z.enum(["pix", "boleto", "negociacao"]),
       proposta_index: z.number().optional(),

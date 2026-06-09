@@ -564,6 +564,43 @@ function sanitizeOutboundMessage(message: string, fallback: string): string {
   return trimmed.length > maxLength ? `${trimmed.slice(0, maxLength - 3)}...` : trimmed;
 }
 
+// Detecta valores monetarios inventados pelo LLM (hallucination).
+// Se a resposta menciona R$ X onde X nao esta nos valores permitidos, usa fallback.
+function detectarHallucination(
+  message: string,
+  valoresPermitidos: number[],
+  fallback: string,
+): string {
+  // Extrai todos os valores R$ da mensagem (ex: "R$ 1.234,56" ou "R$1234")
+  const matches = message.matchAll(/R\$\s*([\d.,]+)/gi);
+  const permSet = new Set(
+    valoresPermitidos
+      .filter((v) => Number.isFinite(v) && v > 0)
+      .map((v) => v.toFixed(2)),
+  );
+  if (permSet.size === 0) return message; // sem valores de referencia, nao filtra
+  for (const match of matches) {
+    const raw = match[1].replace(/\./g, "").replace(",", ".");
+    const parsed = parseFloat(raw);
+    if (!Number.isFinite(parsed)) continue;
+    const key = parsed.toFixed(2);
+    // Tolerancia de 1 centavo para arredondamentos
+    const isPermitted = permSet.has(key)
+      || [...permSet].some((p) => Math.abs(parseFloat(p) - parsed) < 0.02);
+    if (!isPermitted) {
+      console.warn("[LLM hallucination] Valor inventado detectado:", key, "nao esta em", [...permSet]);
+      return fallback;
+    }
+  }
+  return message;
+}
+
+// Detecta se a resposta do LLM esta em portugues (simples heuristica)
+function isRespostaEmPortugues(message: string): boolean {
+  const ptMarkers = /\b(voce|ola|boa|obrigado|para|pode|titulo|valor|vencimento|duplicata|regularizar|boleto|pagamento|estamos|aqui|nosso|nossa|atendimento|nao|sim|que|com|por|seu|sua)\b/i;
+  return ptMarkers.test(removeAccents(message.toLowerCase()));
+}
+
 function formatMoneyBr(value: number): string {
   return Number(value ?? 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 }
@@ -1218,7 +1255,11 @@ export class LaraService {
       return { status: "whatsapp_nao_configurado", wa_id: waId };
     }
 
-    const titulos = await this.listTitulos({ codcli: input.codcli });
+    const titulosRaw = await this.listTitulos({ codcli: input.codcli });
+    // MEDIA-9: filtra titulos com valor invalido (null, zero, negativo) para evitar cobrar indevidamente
+    const titulos = titulosRaw.filter(
+      (t) => Number.isFinite(t.valor) && t.valor > 0 && t.duplicata && String(t.duplicata).trim() !== "",
+    );
     if (titulos.length === 0) return { status: "sem_titulos", wa_id: waId };
 
     const total = roundMoney(titulos.reduce((sum, t) => sum + t.valor, 0));
@@ -3135,7 +3176,19 @@ export class LaraService {
         throw new Error(`OpenAI HTTP ${response.status}. ${safeText(outputText || "Falha ao compor resposta.")}`);
       }
 
-      const generatedText = sanitizeOutboundMessage(extractOpenAiOutputText(payloadUnknown), fallbackMessage);
+      const rawGenerated = sanitizeOutboundMessage(extractOpenAiOutputText(payloadUnknown), fallbackMessage);
+
+      // Deteccao de hallucination: valores monetarios inventados -> usa fallback
+      const valoresContexto = [input.total, ...input.titulos.map((t) => t.valor)].filter(Boolean);
+      const afterHallucinationCheck = detectarHallucination(rawGenerated, valoresContexto, fallbackMessage);
+
+      // Garantia de idioma: se resposta nao parece portugues -> usa fallback
+      const generatedText = isRespostaEmPortugues(afterHallucinationCheck)
+        ? afterHallucinationCheck
+        : fallbackMessage;
+
+      const hallucinationDetected = afterHallucinationCheck === fallbackMessage && rawGenerated !== fallbackMessage;
+      const wrongLanguage = generatedText === fallbackMessage && afterHallucinationCheck !== fallbackMessage;
 
       await laraOperationalStore.addIntegrationLog({
         integracao: "openai",
@@ -3150,18 +3203,21 @@ export class LaraService {
         },
         response_json: {
           request_id: requestId,
-          provider: "openai",
+          provider: hallucinationDetected || wrongLanguage ? "fallback" : "openai",
           message_preview: generatedText.slice(0, 250),
+          hallucination_detected: hallucinationDetected,
+          wrong_language: wrongLanguage,
         },
-        status_operacao: "processado",
+        status_operacao: hallucinationDetected || wrongLanguage ? "fallback_qualidade" : "processado",
         idempotency_key: idempotencyKey,
         correlation_id: input.correlationId,
       });
 
       return {
         message: generatedText,
-        provider: "openai",
+        provider: hallucinationDetected || wrongLanguage ? "fallback" : "openai",
         requestId: requestId || undefined,
+        fallbackReason: hallucinationDetected ? "hallucination_detected" : wrongLanguage ? "wrong_language" : undefined,
       };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);

@@ -279,6 +279,24 @@ async function start() {
   });
   // Registra o logger do servidor no fallback handler para alertas visíveis no log
   registerFallbackLogger({ error: (payload, msg) => app.log.error(payload, msg) });
+  // MEDIA-7: Aviso de piloto ativo — impede producao com restricao de codcli
+  const pilotCodclis = String(env.LARA_PILOT_CODCLIS ?? "").trim();
+  if (pilotCodclis) {
+    app.log.warn(
+      { codclis: pilotCodclis, alerta: "PILOT_RESTRICTION_ATIVA" },
+      "[LARA PILOTO] ATENCAO: LARA_PILOT_CODCLIS esta definido. Apenas os codcli listados receberao disparos. " +
+      "Remova ou deixe vazio em producao para atender todos os clientes.",
+    );
+  }
+  // MEDIA-6: Aviso de webhook sem token — risco em producao
+  if (!String(env.LARA_INBOUND_WEBHOOK_TOKEN ?? "").trim() && env.NODE_ENV === "production") {
+    app.log.warn(
+      { alerta: "WEBHOOK_SEM_TOKEN" },
+      "[LARA SEGURANCA] LARA_INBOUND_WEBHOOK_TOKEN nao definido em producao. " +
+      "Qualquer origem pode enviar webhooks inbound. Defina o token para proteger os endpoints.",
+    );
+  }
+
   if (env.LARA_SCHEDULERS_ENABLED) {
     stopLaraDailySync = startLaraDailySyncScheduler(app.log);
     stopLaraPromiseFollowup = startLaraPromiseFollowupScheduler(app.log);
@@ -288,6 +306,10 @@ async function start() {
     stopReguaScheduler = startLaraReguaScheduler(app.log);
     stopBanditEngine = startBanditEngine();
     stopReadFollowup = startLaraReadFollowupScheduler(app.log);
+    app.log.info(
+      { schedulers: ["daily-sync","promise-followup","feedback","learning","whatsapp-template","regua","bandit","read-followup"] },
+      "[LARA] Todos os schedulers iniciados.",
+    );
   } else {
     app.log.warn("Schedulers Lara desativados por LARA_SCHEDULERS_ENABLED=false.");
   }
