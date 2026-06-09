@@ -1310,7 +1310,7 @@ export class LaraService {
         await new Promise((r) => setTimeout(r, 600));
         await uazapiSendText(waId, pixCopiaCola);
         await new Promise((r) => setTimeout(r, 400));
-        await uazapiSendText(waId, `Apos o pagamento, responda *PAGO* para confirmarmos. Se preferir boleto, responda *BOLETO*.`);
+        await uazapiSendText(waId, `Apos o pagamento, responda *PAGO* para confirmarmos.`);
         mensagem = titulos.length === 1
           ? `[${etapa}] ${t0.duplicata} | ${formatMoneyBr(t0.valor)}`
           : `[${etapa}] ${titulos.length} titulos | ${formatMoneyBr(total)}`;
@@ -1323,7 +1323,7 @@ export class LaraService {
             `Duplicata: ${t0.duplicata}\n` +
             `Valor: ${formatMoneyBr(t0.valor)}\n` +
             `Vencimento: ${formatDateBr(t0.vencimento)}\n\n` +
-            `Para regularizar, responda *BOLETO* ou *PIX* e te envio o codigo de pagamento.`;
+            `Para regularizar, responda *PIX* e te envio o codigo de pagamento.`;
         } else {
           const linhas = titulos.slice(0, 5).map((t) =>
             `- ${t.duplicata} - ${formatMoneyBr(t.valor)} (venc. ${formatDateBr(t.vencimento)})`
@@ -1331,7 +1331,7 @@ export class LaraService {
           texto =
             `Ola ${nome}! Voce possui ${titulos.length} titulo(s) em aberto totalizando *${formatMoneyBr(total)}*:\n\n` +
             `${linhas}${titulos.length > 5 ? `\n...e mais ${titulos.length - 5} titulo(s)` : ""}\n\n` +
-            `Para regularizar, responda *BOLETO* ou *PIX* e te envio o codigo de pagamento.`;
+            `Para regularizar, responda *PIX* e te envio o codigo de pagamento.`;
         }
         const res = await uazapiSendText(waId, texto);
         wamid = res.messageid;
@@ -2797,7 +2797,7 @@ export class LaraService {
     }
 
     linhas.push(`\nTotal em aberto: *${totalFmt}*`);
-    linhas.push(`\nDeseja negociar? Posso oferecer opcoes de pagamento a vista, parcelamento ou gerar boleto/PIX.`);
+    linhas.push(`\nDeseja negociar? Posso oferecer opcoes de pagamento a vista, parcelamento ou gerar PIX agora.`);
 
     const result = linhas.join("\n");
     return result.length > 4096 ? `${result.slice(0, 4093)}...` : result;
@@ -2963,9 +2963,9 @@ export class LaraService {
       "",
       "## CONFIRMACAO ANTES DE GERAR PAGAMENTO",
       isRespostaADisparo
-        ? "O sistema ja conhece o cliente e os titulos. Se o cliente pedir PIX ou boleto, gere diretamente sem pedir confirmacao redundante."
+        ? "O sistema ja conhece o cliente e os titulos. Se o cliente pedir PIX, gere diretamente sem pedir confirmacao redundante."
           + " EXCECAO: se houver mais de um titulo em aberto e o cliente nao especificou qual, pergunte antes de gerar."
-        : "Antes de gerar PIX ou boleto, confirme: \"Vou gerar um [forma] de [valor] para [duplicata]. Confirma?\""
+        : "Antes de gerar o PIX, confirme: \"Vou gerar um PIX de [valor] para [duplicata]. Confirma?\""
           + " EXCECAO: se o cliente ja confirmou explicitamente na mesma mensagem.",
       "",
       "## COMO CONDUZIR A CONVERSA",
@@ -3013,8 +3013,8 @@ export class LaraService {
       "",
       "## ESTAGIOS E COMPORTAMENTOS ESPERADOS",
       "  primeiro_contato -> confirme identidade (CPF/CNPJ), depois apresente os titulos.",
-      "  apresentacao     -> explique os titulos e ofereça PIX ou boleto.",
-      "  oferta           -> reforce o beneficio de quitar hoje e pergunte qual forma de pagamento.",
+      "  apresentacao     -> explique os titulos e ofereça PIX para pagamento instantaneo.",
+      "  oferta           -> reforce o beneficio de quitar hoje via PIX.",
       "  fechamento       -> confirme a intencao, gere o meio de pagamento, encaminhe.",
       "  conducao         -> analise a mensagem, identifique a necessidade, avance para fechamento.",
     ].join("\n");
@@ -3030,17 +3030,17 @@ export class LaraService {
       primeiro_contato: [
         `Apresente os ${input.titulos.length} titulo(s) com duplicata, valor e vencimento (maximo 5).`,
         "Informe o total em aberto.",
-        "Pergunte diretamente: 'Deseja quitar hoje? Posso gerar PIX ou boleto.'",
+        "Pergunte diretamente: 'Deseja quitar hoje? Posso gerar o PIX agora.'",
       ],
       apresentacao: [
         "O cliente ainda nao viu os titulos claramente. Apresente-os de forma resumida.",
-        "Ofereca PIX (pagamento instantaneo) ou boleto (1 dia util) como opcoes.",
-        "Termine com uma pergunta direta sobre qual prefere.",
+        "Ofereca PIX copia e cola para pagamento instantaneo.",
+        "Termine com uma pergunta direta: 'Posso gerar o PIX agora?'",
       ],
       oferta: [
         "Os titulos ja foram apresentados. Foque em fechar o pagamento.",
-        "Reforce a facilidade do PIX ou boleto.",
-        "Pergunte: 'Qual forma de pagamento prefere? PIX ou boleto?'",
+        "Reforce a facilidade e instantaneidade do PIX.",
+        "Pergunte: 'Posso gerar o PIX agora?'",
         "Se o cliente hesitar, ofereca parcelamento ou negociacao.",
       ],
       fechamento: [
@@ -5738,7 +5738,7 @@ export class LaraService {
       const saudacao = saudacaoHoraria(timezone);
       const nomeCliente = cliente.cliente.split(" ")[0];
       const valorStr = total.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-      const msgOpcoes = `${saudacao}, ${nomeCliente}! Para regularizar seu saldo de ${valorStr}, posso gerar:\n\n*PIX copia e cola* - pagamento instantaneo\n*Boleto bancario* - vencimento em 1 dia util\n\nQual prefere? Responda *PIX* ou *Boleto*.`;
+      const msgOpcoes = `${saudacao}, ${nomeCliente}! Para regularizar seu saldo de ${valorStr}, posso gerar um *PIX copia e cola* para pagamento instantaneo.\n\nResponda *PIX* e te envio o codigo agora.`;
       await laraOperationalStore.addMessageLog({
         wa_id: waId,
         codcli: Number(cliente.codcli),
@@ -5942,7 +5942,7 @@ export class LaraService {
 
     const saudacaoPadrao = saudacaoHoraria();
     const nomeClientePadrao = cliente.cliente.split(" ")[0];
-    const defaultFallback = `${saudacaoPadrao}, ${nomeClientePadrao}! Localizei ${titulos.length} titulo(s) em aberto no total de ${total.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}. Deseja boleto ou PIX?`;
+    const defaultFallback = `${saudacaoPadrao}, ${nomeClientePadrao}! Localizei ${titulos.length} titulo(s) em aberto no total de ${total.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}. Posso gerar um PIX para voce quitar agora. Deseja?`;
     const defaultReply = await this.composeRespostaCobranca({
       tenantId,
       waId,
@@ -7507,7 +7507,7 @@ function gerarScriptHumano(input: {
   } else if (valence === "positivo") {
     linhas.push(
       "1. Cliente receptivo - va direto ao ponto.",
-      "2. Confirme o valor e ofereca PIX ou boleto.",
+      "2. Confirme o valor e ofereca PIX para pagamento instantaneo.",
       "3. Se necessario, parcelamento com condicoes favoraveis.",
     );
   } else {
