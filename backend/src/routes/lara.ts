@@ -1,5 +1,6 @@
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { requireRole } from "../utils/authorization.js";
+import { dateToIsoDateTime } from "../modules/lara/utils.js";
 import { createHmac, timingSafeEqual } from "node:crypto";
 import { z } from "zod";
 import { env } from "../config/env.js";
@@ -485,7 +486,7 @@ export async function laraRoutes(app: FastifyInstance) {
       detalhe: body.detalhe,
       origem: body.origem,
       responsavel: body.responsavel,
-      status: "escalado",
+      status: "pendente",
     });
     return {
       status: "ok",
@@ -628,6 +629,72 @@ export async function laraRoutes(app: FastifyInstance) {
     const body = caseBodySchema.parse(req.body);
     const caseItem = await laraService.createCase(body);
     return { status: "ok", case: caseItem };
+  });
+
+  // Atualiza status de um case (ex: pendente → em_atendimento → resolvido)
+  app.patch("/api/lara/cases/:id/status", async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const { status, responsavel } = req.body as { status: string; responsavel?: string };
+    if (!status) return reply.status(400).send({ error: "status obrigatorio" });
+    await laraOperationalStore.updateCaseStatus(id, status, responsavel);
+    return { status: "ok", case_id: id, novo_status: status };
+  });
+
+  // Envia mensagem manual do atendente para o cliente via uazapi/WhatsApp
+  app.post("/api/lara/atendimento-humano/enviar", async (req, reply) => {
+    const { wa_id, mensagem, operador, case_id, codcli: codcliBody } = req.body as {
+      wa_id: string; mensagem: string; operador?: string; case_id?: string; codcli?: string | number;
+    };
+    if (!wa_id || !mensagem) return reply.status(400).send({ error: "wa_id e mensagem obrigatorios" });
+
+    const { sendText, isUazapiConfigured } = await import("../modules/lara/uazapiService.js");
+    const { sendTextMessage, isWhatsAppConfigured } = await import("../modules/lara/whatsappTemplateManager.js");
+
+    // Texto enviado ao WhatsApp inclui assinatura do operador para o cliente identificar o humano
+    const nomeOperador = (operador ?? "Atendente").trim();
+    const mensagemWhatsApp = `👤 *${nomeOperador}:*\n${mensagem}`;
+
+    if (isUazapiConfigured()) {
+      // bypassDedup: mensagens do operador humano nunca devem ser bloqueadas por dedup
+      await sendText(wa_id, mensagemWhatsApp, { bypassDedup: true });
+    } else if (isWhatsAppConfigured()) {
+      await sendTextMessage(wa_id, mensagemWhatsApp);
+    } else {
+      return reply.status(503).send({ error: "Nenhum canal de mensagens configurado." });
+    }
+
+    // Resolve o codcli: usa o do body ou busca no histórico pelo wa_id
+    let codcliResolved: number | null = codcliBody ? Number(codcliBody) : null;
+    if (!codcliResolved) {
+      const msgs = await laraOperationalStore.listMessagesByWaId(wa_id);
+      const found = msgs.find((m) => m.codcli !== null && m.codcli !== undefined && m.codcli !== "");
+      codcliResolved = found ? Number(found.codcli) : null;
+    }
+
+    await laraOperationalStore.addMessageLog({
+      wa_id,
+      codcli: codcliResolved,
+      cliente: "",
+      telefone: wa_id,
+      message_text: mensagem,
+      direction: "OUTBOUND",
+      origem: "atendimento-humano",
+      etapa: "",
+      duplics: "",
+      valor_total: 0,
+      payload_json: JSON.stringify({ case_id, operador }),
+      status: "enviado",
+      sent_at: dateToIsoDateTime(new Date()),
+      received_at: "",
+      message_type: "texto",
+      operator_name: operador ?? "Atendente",
+      idempotency_key: `human:${wa_id}:${Date.now()}`,
+    });
+
+    if (case_id) {
+      await laraOperationalStore.updateCaseStatus(case_id, "em_atendimento", operador).catch(() => {});
+    }
+    return { status: "ok", enviado: true };
   });
 
   app.get("/api/lara/optout", async (req) => {

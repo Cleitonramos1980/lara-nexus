@@ -235,6 +235,7 @@ export interface LaraMensagem {
   texto: string;
   data_hora: string;
   tipo: "texto" | "boleto" | "pix" | "bolepix" | "sistema";
+  operador?: string;
 }
 
 export interface LaraConversa {

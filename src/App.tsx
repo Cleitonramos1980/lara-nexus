@@ -26,6 +26,7 @@ const LaraNegociacaoConfig = lazy(() => import("./pages/lara/LaraNegociacaoConfi
 const LaraDashboardPreditivo = lazy(() => import("./pages/lara/LaraDashboardPreditivo.tsx"));
 const LaraFeedbackInsights = lazy(() => import("./pages/lara/LaraFeedbackInsights.tsx"));
 const LaraPromessas = lazy(() => import("./pages/lara/LaraPromessas.tsx"));
+const LaraAtendimentoHumano = lazy(() => import("./pages/lara/LaraAtendimentoHumano.tsx"));
 
 const queryClient = new QueryClient();
 
@@ -66,6 +67,7 @@ const App = () => (
               <Route path="/lara/dashboard-preditivo" element={<LaraDashboardPreditivo />} />
               <Route path="/lara/feedback" element={<LaraFeedbackInsights />} />
               <Route path="/lara/promessas" element={<LaraPromessas />} />
+              <Route path="/lara/atendimento-humano" element={<LaraAtendimentoHumano />} />
               {/* Portal Self-Service — rota pública, sem auth */}
               <Route path="/lara/portal/:token" element={<LaraPortal />} />
               <Route path="*" element={<NotFound />} />

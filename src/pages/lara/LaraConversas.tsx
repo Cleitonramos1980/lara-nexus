@@ -127,7 +127,7 @@ export default function LaraConversas() {
                       <StatusBadge status={c.status} />
                     </div>
                     <p className="text-[11px] text-muted-foreground mt-1 truncate">
-                      {c.mensagens[c.mensagens.length - 1]?.texto}
+                      {(c.mensagens[c.mensagens.length - 1]?.texto ?? "").replace(/^\[(uazapi-pix|uazapi|template):/, "[")}
                     </p>
                     <div className="flex items-center gap-2 mt-2">
                       <EtapaReguaBadge etapa={c.etapa} />
@@ -207,7 +207,7 @@ export default function LaraConversas() {
                             {msg.tipo === 'pix' && <Banknote className="h-3 w-3 text-violet-600" />}
                           </div>
                         )}
-                        <p className={`text-sm ${msg.tipo === 'sistema' ? '' : 'text-foreground'}`}>{msg.texto}</p>
+                        <p className={`text-sm ${msg.tipo === 'sistema' ? '' : 'text-foreground'}`} translate="no">{msg.texto.replace(/^\[(uazapi-pix|uazapi|template):/, "[")}</p>
                         {msg.tipo !== 'sistema' && (
                           <p className="text-[10px] text-muted-foreground mt-1 text-right">{msg.data_hora.split(' ')[1]}</p>
                         )}

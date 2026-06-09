@@ -207,14 +207,17 @@ export async function getInstanceStatus(): Promise<UazapiInstanceStatus> {
 export async function sendText(
   number: string,
   text: string,
-  options?: UazapiSendOptions,
+  options?: UazapiSendOptions & { bypassDedup?: boolean },
 ): Promise<UazapiSendResponse> {
-  const dedupKey = `text:${number}:${text.slice(0, 80)}`;
-  if (_isDuplicate(dedupKey)) {
-    return { ok: false, error: "dedup: mensagem já enviada recentemente", status: "dedup" };
+  if (!options?.bypassDedup) {
+    const dedupKey = `text:${number}:${text.slice(0, 80)}`;
+    if (_isDuplicate(dedupKey)) {
+      return { ok: false, error: "dedup: mensagem já enviada recentemente", status: "dedup" };
+    }
   }
 
-  const body: UazapiSendTextInput = { number, text, ...options };
+  const { bypassDedup: _, ...sendOptions } = options ?? {};
+  const body: UazapiSendTextInput = { number, text, ...sendOptions };
   const result = await _uazapiFetch<Record<string, unknown>>("/send/text", "POST", body);
 
   return {

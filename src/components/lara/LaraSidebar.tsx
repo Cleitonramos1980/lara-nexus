@@ -5,6 +5,7 @@ import {
   FileText,
   FolderOpen,
   HandshakeIcon,
+  Headphones,
   LayoutDashboard,
   MessageSquare,
   MessagesSquare,
@@ -40,6 +41,7 @@ const groups = [
       { title: "Clientes", url: "/lara/clientes", icon: Users },
       { title: "Títulos", url: "/lara/titulos", icon: FileText },
       { title: "Promessas", url: "/lara/promessas", icon: CalendarClock },
+      { title: "Atendimento Humano", url: "/lara/atendimento-humano", icon: Headphones },
     ],
   },
   {

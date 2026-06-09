@@ -363,6 +363,26 @@ export function createCase(payload: {
   });
 }
 
+export function updateCaseStatus(id: string, status: string, responsavel?: string) {
+  return apiRequest<{ status: string }>(`/lara/cases/${encodeURIComponent(id)}/status`, {
+    method: "PATCH",
+    json: { status, responsavel },
+  });
+}
+
+export function enviarMensagemHumano(payload: {
+  wa_id: string;
+  mensagem: string;
+  operador?: string;
+  case_id?: string;
+  codcli?: string | number;
+}) {
+  return apiRequest<{ status: string; enviado: boolean }>("/lara/atendimento-humano/enviar", {
+    method: "POST",
+    json: payload,
+  });
+}
+
 export function getOptouts(filters?: {
   search?: string;
   filial?: string;

@@ -84,6 +84,7 @@ export interface CaseItem {
   origem: string;
   responsavel: string;
   detalhe: string;
+  status: string;
 }
 
 export interface LogItem {
@@ -120,6 +121,7 @@ export interface Mensagem {
   texto: string;
   data_hora: string;
   tipo: 'texto' | 'boleto' | 'pix' | 'sistema';
+  operador?: string;
 }
 
 export interface Conversa {
@@ -217,12 +219,12 @@ export const mockAtendimentos: Atendimento[] = [
 ];
 
 export const mockCases: CaseItem[] = [
-  { id: 'c1', data_hora: '2025-04-05 09:20', cliente: 'Atacadão Manaus Utilidades Ltda', codcli: '10456', wa_id: '5592997345678', acao: 'PROMESSA_PAGAMENTO', etapa: 'D0', duplicatas: 'NF-2024-005678', valor_total: 23100.50, forma_pagamento: 'Boleto', origem: 'Receptivo', responsavel: 'Lara Automação', detalhe: 'Cliente solicitou boleto atualizado e prometeu pagamento para 10/04.' },
-  { id: 'c2', data_hora: '2025-04-04 14:35', cliente: 'Comercial Norte Distribuidora Ltda', codcli: '10234', wa_id: '5592998123456', acao: 'BOLETO_REENVIADO', etapa: 'D+7', duplicatas: 'NF-2024-001234 (1/3, 2/3)', valor_total: 25000.00, forma_pagamento: 'Boleto', origem: 'Régua ativa', responsavel: 'Lara Automação', detalhe: 'Boleto atualizado gerado e enviado automaticamente via régua D+7.' },
-  { id: 'c3', data_hora: '2025-04-04 10:05', cliente: 'Belém Center Magazine Ltda', codcli: '11345', wa_id: '5591987564321', acao: 'PAGAMENTO_ENVIADO', etapa: 'D+7', duplicatas: 'NF-2024-007890 (3/6)', valor_total: 7130.00, forma_pagamento: 'PIX', origem: 'Receptivo', responsavel: 'Lara Automação', detalhe: 'Chave PIX enviada ao cliente após identificação.' },
-  { id: 'c4', data_hora: '2025-04-03 16:50', cliente: 'Rede Ponto Econômico Comércio Ltda', codcli: '10789', wa_id: '5591988129012', acao: 'PROMESSA_PAGAMENTO', etapa: 'D+15', duplicatas: 'NF-2024-009012 (1/5)', valor_total: 31264.00, forma_pagamento: 'Boleto', origem: 'Régua ativa', responsavel: 'Operador Financeiro 01', detalhe: 'Cliente prometeu pagamento para 10/04/2025.' },
-  { id: 'c5', data_hora: '2025-04-05 07:35', cliente: 'Rodrigues Revenda Colchões Ltda', codcli: '11789', wa_id: '5592994126543', acao: 'INFO', etapa: 'D+30', duplicatas: 'NF-2024-004567', valor_total: 29725.00, forma_pagamento: '-', origem: 'Régua ativa', responsavel: 'Operador Financeiro 02', detalhe: 'Cliente solicitou contato com financeiro. Escalado para atendimento humano.' },
-  { id: 'c6', data_hora: '2025-03-28 08:50', cliente: 'Amazonas Lar e Conforto Ltda', codcli: '11567', wa_id: '5592995238765', acao: 'OPTOUT_SET', etapa: '-', duplicatas: '-', valor_total: 0, forma_pagamento: '-', origem: 'Receptivo', responsavel: 'Supervisão de Cobrança', detalhe: 'Cliente solicitou bloqueio de mensagens. Opt-out aplicado.' },
+  { id: 'c1', data_hora: '2025-04-05 09:20', cliente: 'Atacadão Manaus Utilidades Ltda', codcli: '10456', wa_id: '5592997345678', acao: 'PROMESSA_PAGAMENTO', etapa: 'D0', duplicatas: 'NF-2024-005678', valor_total: 23100.50, forma_pagamento: 'Boleto', origem: 'Receptivo', responsavel: 'Lara Automação', detalhe: 'Cliente solicitou boleto atualizado e prometeu pagamento para 10/04.', status: 'pendente' },
+  { id: 'c2', data_hora: '2025-04-04 14:35', cliente: 'Comercial Norte Distribuidora Ltda', codcli: '10234', wa_id: '5592998123456', acao: 'BOLETO_REENVIADO', etapa: 'D+7', duplicatas: 'NF-2024-001234 (1/3, 2/3)', valor_total: 25000.00, forma_pagamento: 'Boleto', origem: 'Régua ativa', responsavel: 'Lara Automação', detalhe: 'Boleto atualizado gerado e enviado automaticamente via régua D+7.', status: 'pendente' },
+  { id: 'c3', data_hora: '2025-04-04 10:05', cliente: 'Belém Center Magazine Ltda', codcli: '11345', wa_id: '5591987564321', acao: 'PAGAMENTO_ENVIADO', etapa: 'D+7', duplicatas: 'NF-2024-007890 (3/6)', valor_total: 7130.00, forma_pagamento: 'PIX', origem: 'Receptivo', responsavel: 'Lara Automação', detalhe: 'Chave PIX enviada ao cliente após identificação.', status: 'resolvido' },
+  { id: 'c4', data_hora: '2025-04-03 16:50', cliente: 'Rede Ponto Econômico Comércio Ltda', codcli: '10789', wa_id: '5591988129012', acao: 'PROMESSA_PAGAMENTO', etapa: 'D+15', duplicatas: 'NF-2024-009012 (1/5)', valor_total: 31264.00, forma_pagamento: 'Boleto', origem: 'Régua ativa', responsavel: 'Operador Financeiro 01', detalhe: 'Cliente prometeu pagamento para 10/04/2025.', status: 'em_atendimento' },
+  { id: 'c5', data_hora: '2025-04-05 07:35', cliente: 'Rodrigues Revenda Colchões Ltda', codcli: '11789', wa_id: '5592994126543', acao: 'ESCALACAO_HUMANA', etapa: 'D+30', duplicatas: 'NF-2024-004567', valor_total: 29725.00, forma_pagamento: '-', origem: 'Régua ativa', responsavel: 'Operador Financeiro 02', detalhe: 'Cliente solicitou contato com financeiro. Escalado para atendimento humano.', status: 'urgente' },
+  { id: 'c6', data_hora: '2025-03-28 08:50', cliente: 'Amazonas Lar e Conforto Ltda', codcli: '11567', wa_id: '5592995238765', acao: 'OPTOUT_COM_DIVIDA_ATIVA', etapa: '-', duplicatas: '-', valor_total: 0, forma_pagamento: '-', origem: 'Receptivo', responsavel: 'Supervisão de Cobrança', detalhe: 'Cliente solicitou bloqueio de mensagens. Opt-out aplicado.', status: 'pendente' },
 ];
 
 export const mockLogs: LogItem[] = [

@@ -1277,8 +1277,8 @@ export class LaraService {
         await new Promise((r) => setTimeout(r, 400));
         await uazapiSendText(waId, `Apos o pagamento, responda *PAGO* para confirmarmos. Se preferir boleto, responda *BOLETO*.`);
         mensagem = titulos.length === 1
-          ? `[uazapi-pix:${etapa}] ${t0.duplicata} | ${formatMoneyBr(t0.valor)}`
-          : `[uazapi-pix:${etapa}] ${titulos.length} titulos | ${formatMoneyBr(total)}`;
+          ? `[${etapa}] ${t0.duplicata} | ${formatMoneyBr(t0.valor)}`
+          : `[${etapa}] ${titulos.length} titulos | ${formatMoneyBr(total)}`;
       } else {
         // Fallback: PIX indisponivel, pede preferencia
         let texto: string;
@@ -1301,8 +1301,8 @@ export class LaraService {
         const res = await uazapiSendText(waId, texto);
         wamid = res.messageid;
         mensagem = titulos.length === 1
-          ? `[uazapi:${etapa}] ${t0.duplicata} | ${formatMoneyBr(t0.valor)}`
-          : `[uazapi:${etapa}] ${titulos.length} titulos | ${formatMoneyBr(total)}`;
+          ? `[${etapa}] ${t0.duplicata} | ${formatMoneyBr(t0.valor)}`
+          : `[${etapa}] ${titulos.length} titulos | ${formatMoneyBr(total)}`;
       }
     } else {
       // Canal Meta: usa template aprovado
@@ -1316,8 +1316,8 @@ export class LaraService {
       });
       wamid = result?.messages?.[0]?.id;
       mensagem = titulos.length === 1
-        ? `[template:${etapa}] ${t0.duplicata} | ${formatMoneyBr(t0.valor)}`
-        : `[template:${etapa}] ${titulos.length} titulos | ${formatMoneyBr(total)}`;
+        ? `[${etapa}] ${t0.duplicata} | ${formatMoneyBr(t0.valor)}`
+        : `[${etapa}] ${titulos.length} titulos | ${formatMoneyBr(total)}`;
     }
 
     const duplicatasJoin = titulos.map((t) => t.duplicata).join(", ");
@@ -7282,7 +7282,7 @@ export class LaraService {
       wa_id: input.waId,
       codcli: input.codcli ?? undefined,
       cliente: "",
-      tipo_case: "escalar_humano",
+      tipo_case: "ESCALACAO_HUMANA",
       etapa: input.etapa ?? "",
       duplicatas: (input.duplicatas ?? []).join(", "),
       valor_total: input.valor_total ?? 0,

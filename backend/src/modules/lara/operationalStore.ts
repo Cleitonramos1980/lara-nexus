@@ -270,6 +270,9 @@ function shouldFallbackToMemory(error: unknown): boolean {
     message.includes("ORA-00942")
     || message.includes("ORA-00904")
     || message.includes("ORA-01031")
+    || message.includes("ORA-01858")
+    || message.includes("ORA-01830")
+    || message.includes("ORA-01861")
     || message.includes("NJS-")
   );
 }
@@ -2016,6 +2019,21 @@ export class LaraOperationalStore {
     return caseItem;
   }
 
+  async updateCaseStatus(id: string, status: string, responsavel?: string): Promise<void> {
+    return withOperationalFallback(
+      async () => {
+        await execDml(
+          `UPDATE LARA_CASES SET STATUS = :status, RESPONSAVEL = NVL(:resp, RESPONSAVEL), UPDATED_AT = SYSTIMESTAMP WHERE ID = :id`,
+          { status, resp: responsavel ?? null, id },
+        );
+      },
+      () => {
+        const c = memoryStore.cases.find((x) => x.id === id);
+        if (c) { c.status = status; if (responsavel) c.responsavel = responsavel; }
+      },
+    );
+  }
+
   async listPromessas(): Promise<PromiseRow[]> {
     return withOperationalFallback(
       async () => {
@@ -3226,12 +3244,14 @@ export class LaraOperationalStore {
               : tipoFromPayload === "sistema" || row.message_type === "sistema"
                 ? "sistema"
                 : "texto";
+      const operadorNome = row.operator_name ? String(row.operator_name).trim() : "";
       return {
         id: row.id,
         remetente: String(row.direction).toUpperCase() === "INBOUND" ? "cliente" : "lara",
         texto: row.message_text || "",
         data_hora: dateToIsoDateTime(row.created_at || row.sent_at || row.received_at),
         tipo,
+        operador: operadorNome || undefined,
       };
     });
   }
