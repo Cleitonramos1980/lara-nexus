@@ -36,6 +36,14 @@ const SAFE_GUARD_ACTIONS: Set<LaraNextAction> = new Set([
   "escalar_humano",
 ]);
 
+// Conjunto de ações válidas para o NBA — padrões aprendidos com action fora deste conjunto são descartados.
+// Protege contra "ignorar" gravado acidentalmente no learningEngine (ex: bloqueios do modo piloto).
+const VALID_NBA_ACTIONS: ReadonlySet<string> = new Set<LaraNextAction>([
+  "enviar_boleto", "enviar_pix", "apresentar_opcoes_pagamento",
+  "registrar_promessa", "negociar_autonomamente", "negociar",
+  "escalar_humano", "pausar_contato", "resposta_padrao",
+]);
+
 export async function chooseNextBestAction(input: NextBestActionInput): Promise<NextBestActionResult> {
   // ── 1. Política bloqueou ──────────────────────────────────────────────────
   if (!input.policyAllowed) {
@@ -122,6 +130,7 @@ export async function chooseNextBestAction(input: NextBestActionInput): Promise<
     && learnedPattern.is_active
     && learnedPattern.sample_count >= 20
     && learnedPattern.success_rate >= 0.65
+    && VALID_NBA_ACTIONS.has(learnedPattern.action_recommended)
     && !SAFE_GUARD_ACTIONS.has(learnedPattern.action_recommended as LaraNextAction)
   ) {
     const rate = Math.round(learnedPattern.success_rate * 100);

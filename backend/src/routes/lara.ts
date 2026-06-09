@@ -285,6 +285,7 @@ export async function laraRoutes(app: FastifyInstance) {
   });
 
   app.post("/api/lara/titulos/recarregar-oracle", async (req) => {
+    requireRole(req, ["ADMIN", "FINANCEIRO"]);
     const body = recarregarTitulosBodySchema.parse(req.body);
     return laraService.recarregarTitulosOracle(body);
   });
@@ -633,6 +634,7 @@ export async function laraRoutes(app: FastifyInstance) {
 
   // Atualiza status de um case (ex: pendente → em_atendimento → resolvido)
   app.patch("/api/lara/cases/:id/status", async (req, reply) => {
+    requireRole(req, ["ADMIN", "FINANCEIRO", "OPERACIONAL"]);
     const { id } = req.params as { id: string };
     const { status, responsavel } = req.body as { status: string; responsavel?: string };
     if (!status) return reply.status(400).send({ error: "status obrigatorio" });
@@ -642,6 +644,7 @@ export async function laraRoutes(app: FastifyInstance) {
 
   // Envia mensagem manual do atendente para o cliente via uazapi/WhatsApp
   app.post("/api/lara/atendimento-humano/enviar", async (req, reply) => {
+    requireRole(req, ["ADMIN", "FINANCEIRO", "OPERACIONAL"]);
     const { wa_id, mensagem, operador, case_id, codcli: codcliBody } = req.body as {
       wa_id: string; mensagem: string; operador?: string; case_id?: string; codcli?: string | number;
     };
@@ -667,7 +670,7 @@ export async function laraRoutes(app: FastifyInstance) {
     let codcliResolved: number | null = codcliBody ? Number(codcliBody) : null;
     if (!codcliResolved) {
       const msgs = await laraOperationalStore.listMessagesByWaId(wa_id);
-      const found = msgs.find((m) => m.codcli !== null && m.codcli !== undefined && m.codcli !== "");
+      const found = msgs.find((m) => m.codcli != null && Number(m.codcli) > 0);
       codcliResolved = found ? Number(found.codcli) : null;
     }
 
@@ -704,6 +707,7 @@ export async function laraRoutes(app: FastifyInstance) {
   });
 
   app.post("/api/lara/optout", async (req) => {
+    requireRole(req, ["ADMIN", "FINANCEIRO", "OPERACIONAL"]);
     const body = optoutBodySchema.parse(req.body);
     const item = await laraService.setOptout(body);
     return { status: "ok", item };
@@ -965,6 +969,7 @@ export async function laraRoutes(app: FastifyInstance) {
   });
 
   app.post("/api/lara/negociacao/simular", async (req) => {
+    requireRole(req, ["ADMIN", "FINANCEIRO"]);
     const body = z.object({
       codcli: z.number(),
       duplicatas: z.array(z.string()).optional(),

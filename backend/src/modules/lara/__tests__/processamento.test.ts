@@ -129,31 +129,49 @@ test("usa contexto recente para enviar boleto sem pedir identificação", async 
     idempotency_key: makeIdempotencyKey(["ctx", waId, seed]),
   });
 
-  const result = await laraService.processarMensagemInbound({
-    event_id: `evt-contexto-${seed}`,
-    wa_id: waId,
-    telefone: waId,
-    message_text: "ok pode mandar",
-    origem: "teste",
-  });
+  // Desabilita modo piloto para este teste — o codcli gerado não está na lista de produção
+  const { env } = await import("../../../config/env.js");
+  const previousPilot = env.LARA_PILOT_CODCLIS;
+  (env as Record<string, unknown>).LARA_PILOT_CODCLIS = undefined;
 
-  assert.equal(result.status, "ok");
-  assert.equal(result.acao, "enviar_boleto");
+  try {
+    const result = await laraService.processarMensagemInbound({
+      event_id: `evt-contexto-${seed}`,
+      wa_id: waId,
+      telefone: waId,
+      message_text: "ok pode mandar",
+      origem: "teste",
+    });
+
+    assert.equal(result.status, "ok");
+    assert.equal(result.acao, "enviar_boleto");
+  } finally {
+    (env as Record<string, unknown>).LARA_PILOT_CODCLIS = previousPilot;
+  }
 });
 
 test("registra promessa de pagamento a partir da mensagem", async () => {
   const seed = nextSeed();
   const { codcli, waId } = await seedClienteComTitulo(seed);
 
-  const result = await laraService.processarMensagemInbound({
-    event_id: `evt-promessa-${seed}`,
-    wa_id: waId,
-    telefone: waId,
-    codcli: Number(codcli),
-    message_text: "vou pagar dia 25",
-    origem: "teste",
-  });
+  // Desabilita modo piloto para este teste — o codcli gerado não está na lista de produção
+  const { env } = await import("../../../config/env.js");
+  const previousPilot = env.LARA_PILOT_CODCLIS;
+  (env as Record<string, unknown>).LARA_PILOT_CODCLIS = undefined;
 
-  assert.equal(result.status, "ok");
-  assert.equal(result.acao, "registrar_promessa");
+  try {
+    const result = await laraService.processarMensagemInbound({
+      event_id: `evt-promessa-${seed}`,
+      wa_id: waId,
+      telefone: waId,
+      codcli: Number(codcli),
+      message_text: "vou pagar dia 25",
+      origem: "teste",
+    });
+
+    assert.equal(result.status, "ok");
+    assert.equal(result.acao, "registrar_promessa");
+  } finally {
+    (env as Record<string, unknown>).LARA_PILOT_CODCLIS = previousPilot;
+  }
 });

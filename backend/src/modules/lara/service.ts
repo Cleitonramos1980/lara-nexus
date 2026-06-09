@@ -2949,6 +2949,25 @@ export class LaraService {
       ],
     };
 
+    // Carrega políticas de negociação do banco (sobrepõe POLITICAS_PADRAO se configuradas)
+    let politicaNegociacaoCtx: Record<string, unknown> = {};
+    if (input.action === "negociar" || input.action === "negociar_autonomamente") {
+      try {
+        const politicasSalvas = await this.listPoliticasNegociacao();
+        const pol = selecionarPoliticaPorEtapa(input.cliente.etapa_regua, politicasSalvas);
+        if (pol) {
+          politicaNegociacaoCtx = {
+            politicas_negociacao: {
+              desconto_maximo_pct: pol.desconto_maximo_pct,
+              parcelas_maximas: pol.parcelas_maximas,
+              entrada_minima_pct: pol.entrada_minima_pct,
+              instrucao: `Voce pode oferecer ate ${pol.desconto_maximo_pct}% de desconto e parcelamento em ate ${pol.parcelas_maximas}x com entrada minima de ${pol.entrada_minima_pct}%. NAO ultrapasse esses limites. Nao invente condicoes que nao estejam aqui.`,
+            },
+          };
+        }
+      } catch { /* fallback silencioso */ }
+    }
+
     const userPayload = {
       tenant_id: input.tenantId,
       wa_id_masked: maskPhone(input.waId),
@@ -2980,22 +2999,8 @@ export class LaraService {
       },
       fallback_base: fallbackMessage,
       instrucoes_para_este_turno: instrucoesPorEstagio[estagio] ?? instrucoesPorEstagio.conducao,
-      // Políticas de negociação: informa ao LLM os limites reais da empresa
-      // Só incluídas quando a ação é negociar — evita confusão em outros contextos
-      ...(input.action === "negociar" || input.action === "negociar_autonomamente" ? (() => {
-        try {
-          const pol = selecionarPoliticaPorEtapa(input.cliente.etapa_regua, POLITICAS_PADRAO);
-          if (!pol) return {};
-          return {
-            politicas_negociacao: {
-              desconto_maximo_pct: pol.desconto_maximo_pct,
-              parcelas_maximas: pol.parcelas_maximas,
-              entrada_minima_pct: pol.entrada_minima_pct,
-              instrucao: `Voce pode oferecer ate ${pol.desconto_maximo_pct}% de desconto e parcelamento em ate ${pol.parcelas_maximas}x com entrada minima de ${pol.entrada_minima_pct}%. NAO ultrapasse esses limites. Nao invente condicoes que nao estejam aqui.`,
-            },
-          };
-        } catch { return {}; }
-      })() : {}),
+      // Políticas de negociação lidas do banco (pré-computadas acima)
+      ...politicaNegociacaoCtx,
       ...(input.conversationSummary ? { resumo_semantico_da_conversa: input.conversationSummary } : {}),
       ...(input.contextualInsights ? {
         refinamento_contextual: {
@@ -6695,7 +6700,22 @@ export class LaraService {
   // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
   async listPoliticasNegociacao(): Promise<PoliticaNegociacao[]> {
-    return POLITICAS_PADRAO;
+    // Parte das políticas padrão e sobrepõe com o que foi salvo no store
+    const politicas: PoliticaNegociacao[] = POLITICAS_PADRAO.map((p) => ({ ...p }));
+    for (const pol of politicas) {
+      const etapaKey = pol.etapa_regua.replace("+", "MAIS").replace("-", "MENOS");
+      const [desc, parc, entr, ativ] = await Promise.all([
+        laraOperationalStore.getConfiguracao(`LARA_NEG_${etapaKey}_DESCONTO`),
+        laraOperationalStore.getConfiguracao(`LARA_NEG_${etapaKey}_PARCELAS`),
+        laraOperationalStore.getConfiguracao(`LARA_NEG_${etapaKey}_ENTRADA`),
+        laraOperationalStore.getConfiguracao(`LARA_NEG_${etapaKey}_ATIVO`),
+      ]);
+      if (desc !== null) pol.desconto_maximo_pct = Number(desc);
+      if (parc !== null) pol.parcelas_maximas = Number(parc);
+      if (entr !== null) pol.entrada_minima_pct = Number(entr);
+      if (ativ !== null) pol.ativo = ativ === "true";
+    }
+    return politicas;
   }
 
   async upsertPoliticaNegociacao(input: Omit<PoliticaNegociacao, "id" | "created_at" | "updated_at">) {
@@ -6726,7 +6746,8 @@ export class LaraService {
     ]);
     if (!cliente) throw new Error(`Cliente ${codcli} nÃ£o encontrado.`);
 
-    const politica = selecionarPoliticaPorEtapa(cliente.etapa_regua, POLITICAS_PADRAO);
+    const politicasSalvas = await this.listPoliticasNegociacao();
+    const politica = selecionarPoliticaPorEtapa(cliente.etapa_regua, politicasSalvas);
     const resultado = gerarPropostasNegociacao({
       cliente,
       titulos,
@@ -6798,7 +6819,8 @@ export class LaraService {
 
     const titulosAbertos = titulos.filter((t) => t.valor > 0);
     const valorTotal = roundMoney(titulosAbertos.reduce((s, t) => s + t.valor, 0));
-    const politica = selecionarPoliticaPorEtapa(cliente.etapa_regua, POLITICAS_PADRAO);
+    const politicasPortalData = await this.listPoliticasNegociacao();
+    const politica = selecionarPoliticaPorEtapa(cliente.etapa_regua, politicasPortalData);
     const negociacao = gerarPropostasNegociacao({
       cliente,
       titulos,
@@ -6856,8 +6878,9 @@ export class LaraService {
       return { status: "gerado", forma, ...payload };
     }
 
-    // NegociaÃ§Ã£o
-    const politica = selecionarPoliticaPorEtapa(cliente.etapa_regua, POLITICAS_PADRAO);
+    // Negociação — usa políticas salvas no banco
+    const politicasPortalPgto = await this.listPoliticasNegociacao();
+    const politica = selecionarPoliticaPorEtapa(cliente.etapa_regua, politicasPortalPgto);
     const negociacao = gerarPropostasNegociacao({
       cliente,
       titulos,
