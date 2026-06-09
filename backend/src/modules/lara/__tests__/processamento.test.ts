@@ -129,10 +129,11 @@ test("usa contexto recente para enviar boleto sem pedir identificação", async 
     idempotency_key: makeIdempotencyKey(["ctx", waId, seed]),
   });
 
-  // Desabilita modo piloto para este teste — o codcli gerado não está na lista de produção
+  // Adiciona codcli de teste ao piloto sem remover o 347818 de produção
   const { env } = await import("../../../config/env.js");
   const previousPilot = env.LARA_PILOT_CODCLIS;
-  (env as Record<string, unknown>).LARA_PILOT_CODCLIS = undefined;
+  const pilotBase = previousPilot ? `${previousPilot},` : "";
+  (env as Record<string, unknown>).LARA_PILOT_CODCLIS = `${pilotBase}${codcli}`;
 
   try {
     const result = await laraService.processarMensagemInbound({
@@ -154,10 +155,11 @@ test("registra promessa de pagamento a partir da mensagem", async () => {
   const seed = nextSeed();
   const { codcli, waId } = await seedClienteComTitulo(seed);
 
-  // Desabilita modo piloto para este teste — o codcli gerado não está na lista de produção
+  // Adiciona codcli de teste ao piloto sem remover o 347818 de produção
   const { env } = await import("../../../config/env.js");
   const previousPilot = env.LARA_PILOT_CODCLIS;
-  (env as Record<string, unknown>).LARA_PILOT_CODCLIS = undefined;
+  const pilotBase = previousPilot ? `${previousPilot},` : "";
+  (env as Record<string, unknown>).LARA_PILOT_CODCLIS = `${pilotBase}${codcli}`;
 
   try {
     const result = await laraService.processarMensagemInbound({
