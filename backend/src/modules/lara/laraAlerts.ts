@@ -1,33 +1,53 @@
 /**
- * laraAlerts — Alertas operacionais via WhatsApp para numero administrativo.
+ * laraAlerts — Alertas operacionais via WhatsApp para contatos administrativos.
  *
- * Envia mensagens para LARA_ALERT_WHATSAPP_NUMBER quando:
+ * Envia mensagens para ate 3 contatos configurados em /lara/configuracoes quando:
  *   - Nova escalacao humana criada (AGUARDANDO_HUMANO)
  *   - Sync diario falha por N tentativas consecutivas
  *
- * Usa uazapi se configurado, senao Meta Cloud API, senao apenas loga.
+ * Contatos configurados via chaves:
+ *   LARA_ALERT_CONTATO_1_NOME / LARA_ALERT_CONTATO_1_NUMERO
+ *   LARA_ALERT_CONTATO_2_NOME / LARA_ALERT_CONTATO_2_NUMERO
+ *   LARA_ALERT_CONTATO_3_NOME / LARA_ALERT_CONTATO_3_NUMERO
+ *
+ * Fallback: se nao houver contatos no banco, usa LARA_ALERT_WHATSAPP_NUMBER do .env.
+ * Canal: uazapi se configurado, senao Meta Cloud API, senao apenas loga.
  */
 
 import { env } from "../../config/env.js";
 import { saudacaoHoraria } from "./utils.js";
+import { laraOperationalStore } from "./operationalStore.js";
 
-// Cooldown por tipo de alerta: evita spam no mesmo numero
+// Cooldown por tipo de alerta + numero: evita spam
 const _lastSent = new Map<string, number>();
 
 function cooldownOk(key: string, minutos: number): boolean {
   const last = _lastSent.get(key) ?? 0;
-  const elapsed = Date.now() - last;
-  return elapsed >= minutos * 60 * 1000;
+  return Date.now() - last >= minutos * 60 * 1000;
 }
 
 function markSent(key: string): void {
   _lastSent.set(key, Date.now());
 }
 
-async function enviarAlerta(mensagem: string): Promise<void> {
-  const numero = String(env.LARA_ALERT_WHATSAPP_NUMBER ?? "").trim();
-  if (!numero) return;
+type AlertContato = { nome: string; numero: string };
 
+async function listarContatosAlerta(): Promise<AlertContato[]> {
+  const contatos: AlertContato[] = [];
+  for (let i = 1; i <= 3; i++) {
+    const nome = String((await laraOperationalStore.getConfiguracao(`LARA_ALERT_CONTATO_${i}_NOME`)) ?? "").trim();
+    const numero = String((await laraOperationalStore.getConfiguracao(`LARA_ALERT_CONTATO_${i}_NUMERO`)) ?? "").trim();
+    if (numero) contatos.push({ nome: nome || `Contato ${i}`, numero });
+  }
+  // Fallback para env var se nenhum contato configurado no banco
+  if (contatos.length === 0) {
+    const fallback = String(env.LARA_ALERT_WHATSAPP_NUMBER ?? "").trim();
+    if (fallback) contatos.push({ nome: "Admin", numero: fallback });
+  }
+  return contatos;
+}
+
+async function enviarAlertaParaNumero(numero: string, mensagem: string): Promise<void> {
   try {
     const { sendText, isUazapiConfigured } = await import("./uazapiService.js");
     const { sendTextMessage, isWhatsAppConfigured } = await import("./whatsappTemplateManager.js");
@@ -37,10 +57,20 @@ async function enviarAlerta(mensagem: string): Promise<void> {
     } else if (isWhatsAppConfigured()) {
       await sendTextMessage(numero, mensagem);
     } else {
-      console.warn("[laraAlerts] Nenhum canal configurado para envio de alerta. Mensagem:", mensagem);
+      console.warn("[laraAlerts] Nenhum canal configurado. Alerta:", mensagem.slice(0, 80));
     }
   } catch (err) {
-    console.error("[laraAlerts] Falha ao enviar alerta WhatsApp:", String(err));
+    console.error("[laraAlerts] Falha ao enviar alerta para", numero, "-", String(err));
+  }
+}
+
+async function enviarAlerta(mensagem: string, cooldownKey: string, cooldownMin: number): Promise<void> {
+  const contatos = await listarContatosAlerta();
+  for (const contato of contatos) {
+    const key = `${cooldownKey}:${contato.numero}`;
+    if (!cooldownOk(key, cooldownMin)) continue;
+    markSent(key);
+    await enviarAlertaParaNumero(contato.numero, mensagem);
   }
 }
 
@@ -56,10 +86,6 @@ export async function alertarEscalacaoHumana(input: {
   motivo?: string;
 }): Promise<void> {
   const cooldownMin = Number(env.LARA_ALERT_HUMANO_COOLDOWN_MIN ?? 10);
-  const cooldownKey = `humano:${input.waId}`;
-
-  if (!cooldownOk(cooldownKey, cooldownMin)) return;
-
   const saudacao = saudacaoHoraria();
   const prioridadeLabel = input.prioridade === "critica" ? " [URGENTE]" : input.prioridade === "alta" ? " [ALTA]" : "";
   const nomeLabel = input.nomeCliente ? ` - ${input.nomeCliente}` : "";
@@ -74,8 +100,7 @@ export async function alertarEscalacaoHumana(input: {
     motivoLabel +
     `\n\nAcesse o painel em /lara/atendimento-humano para assumir.`;
 
-  markSent(cooldownKey);
-  await enviarAlerta(mensagem);
+  await enviarAlerta(mensagem, `humano:${input.waId}`, cooldownMin);
 }
 
 // ---------------------------------------------------------------------------
@@ -93,11 +118,7 @@ export function registrarSyncSucesso(): void {
 export async function registrarSyncFalha(erro: string): Promise<void> {
   _syncFalhasConsecutivas += 1;
   const maxFalhas = Number(env.LARA_ALERT_SYNC_FALHAS_MAX ?? 2);
-
   if (_syncFalhasConsecutivas < maxFalhas) return;
-
-  const cooldownKey = `sync:falha`;
-  if (!cooldownOk(cooldownKey, 60)) return; // maximo 1 alerta por hora
 
   const ultimoSucessoLabel = _syncUltimoSucesso
     ? `Ultimo sucesso: ${_syncUltimoSucesso}`
@@ -110,6 +131,5 @@ export async function registrarSyncFalha(erro: string): Promise<void> {
     `Erro: ${erro.slice(0, 200)}\n\n` +
     `Os dados da Lara podem estar desatualizados. Verifique a conexao com o Oracle.`;
 
-  markSent(cooldownKey);
-  await enviarAlerta(mensagem);
+  await enviarAlerta(mensagem, "sync:falha", 60);
 }

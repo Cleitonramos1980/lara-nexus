@@ -10,6 +10,9 @@ import { Switch } from '@/components/ui/switch';
 import { Badge } from '@/components/ui/badge';
 import { getReguaConfig, saveConfiguracoes } from '@/services/laraApi';
 
+type AlertContato = { nome: string; numero: string };
+const ALERT_CONTATO_VAZIO: AlertContato = { nome: '', numero: '' };
+
 export default function LaraConfiguracoes() {
   const [assinatura, setAssinatura] = useState('Lara · Assistente Financeira');
   const [empresa, setEmpresa] = useState('Grupo Norte Distribuidora');
@@ -19,6 +22,11 @@ export default function LaraConfiguracoes() {
   const [janelaContextoHoras, setJanelaContextoHoras] = useState('72');
   const [inicioDisparo, setInicioDisparo] = useState('08:00');
   const [fimDisparo, setFimDisparo] = useState('18:00');
+  const [alertContatos, setAlertContatos] = useState<AlertContato[]>([
+    { ...ALERT_CONTATO_VAZIO },
+    { ...ALERT_CONTATO_VAZIO },
+    { ...ALERT_CONTATO_VAZIO },
+  ]);
 
   const { data: configData } = useQuery({
     queryKey: ['lara-regua-config'],
@@ -37,6 +45,10 @@ export default function LaraConfiguracoes() {
     if (map.get('JANELA_CONTEXTO_HORAS')) setJanelaContextoHoras(map.get('JANELA_CONTEXTO_HORAS') || janelaContextoHoras);
     if (map.get('LARA_HORARIO_INICIO')) setInicioDisparo(map.get('LARA_HORARIO_INICIO') || inicioDisparo);
     if (map.get('LARA_HORARIO_FIM')) setFimDisparo(map.get('LARA_HORARIO_FIM') || fimDisparo);
+    setAlertContatos([1, 2, 3].map(i => ({
+      nome: map.get(`LARA_ALERT_CONTATO_${i}_NOME`) || '',
+      numero: map.get(`LARA_ALERT_CONTATO_${i}_NUMERO`) || '',
+    })));
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [configData]);
 
@@ -54,7 +66,15 @@ export default function LaraConfiguracoes() {
       { chave: 'JANELA_CONTEXTO_HORAS', valor: janelaContextoHoras, descricao: 'Janela de contexto de regua ativa' },
       { chave: 'LARA_HORARIO_INICIO', valor: inicioDisparo, descricao: 'Horario inicio disparos' },
       { chave: 'LARA_HORARIO_FIM', valor: fimDisparo, descricao: 'Horario fim disparos' },
+      ...alertContatos.flatMap((c, i) => [
+        { chave: `LARA_ALERT_CONTATO_${i + 1}_NOME`, valor: c.nome, descricao: `Nome do contato de alerta ${i + 1}` },
+        { chave: `LARA_ALERT_CONTATO_${i + 1}_NUMERO`, valor: c.numero, descricao: `Numero do contato de alerta ${i + 1}` },
+      ]),
     ]);
+  };
+
+  const updateAlertContato = (idx: number, field: keyof AlertContato, value: string) => {
+    setAlertContatos(prev => prev.map((c, i) => i === idx ? { ...c, [field]: value } : c));
   };
 
   return (
@@ -134,6 +154,42 @@ export default function LaraConfiguracoes() {
               <Label className="text-xs">Horário de fim dos disparos</Label>
               <Input type="time" value={fimDisparo} onChange={(e) => setFimDisparo(e.target.value)} className="mt-1.5" />
             </div>
+          </div>
+        </section>
+
+        <Separator />
+
+        <section className="rounded-lg border bg-card p-6">
+          <div className="mb-4">
+            <h3 className="text-sm font-semibold text-foreground">Alertas de Escalação Humana</h3>
+            <p className="text-xs text-muted-foreground mt-1">
+              Até 3 pessoas que recebem mensagem no WhatsApp quando um cliente precisa de atendimento humano.
+            </p>
+          </div>
+          <div className="space-y-3">
+            {alertContatos.map((contato, idx) => (
+              <div key={idx} className="grid grid-cols-1 md:grid-cols-2 gap-3 p-3 rounded-md border bg-muted/30">
+                <div>
+                  <Label className="text-xs text-muted-foreground">Nome {idx + 1}</Label>
+                  <Input
+                    placeholder={`Ex: Gerente Financeiro`}
+                    value={contato.nome}
+                    onChange={e => updateAlertContato(idx, 'nome', e.target.value)}
+                    className="mt-1.5"
+                  />
+                </div>
+                <div>
+                  <Label className="text-xs text-muted-foreground">WhatsApp {idx + 1} <span className="text-muted-foreground">(com DDI, ex: 5592999999999)</span></Label>
+                  <Input
+                    placeholder="5592999999999"
+                    value={contato.numero}
+                    onChange={e => updateAlertContato(idx, 'numero', e.target.value.replace(/\D/g, ''))}
+                    className="mt-1.5"
+                    maxLength={15}
+                  />
+                </div>
+              </div>
+            ))}
           </div>
         </section>
 
