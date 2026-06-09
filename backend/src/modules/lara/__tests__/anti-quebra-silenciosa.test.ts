@@ -372,7 +372,7 @@ test("[AQS-12] opt-in reverte opt-out ativo", async () => {
     const optinResult = await laraService.processarMensagemInbound({
       event_id: `aqst12-optin-${seed}`,
       wa_id: waId, telefone: waId, codcli: Number(codcli),
-      message_text: "continuar", origem: "whatsapp-inbound",
+      message_text: "quero continuar a receber mensagens", origem: "whatsapp-inbound",
     });
 
     assert.equal(optinResult.acao, "optin_aplicado", "Opt-in deve ser aplicado");

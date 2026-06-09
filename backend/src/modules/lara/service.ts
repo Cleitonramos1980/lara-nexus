@@ -85,6 +85,7 @@ import {
   safeText,
   maskPhone,
   toNumber,
+  saudacaoHoraria,
 } from "./utils.js";
 
 type SyncResult = {
@@ -761,15 +762,7 @@ function normalizeTimestampForLog(value: string | null | undefined): string {
   return "";
 }
 
-function saudacaoHoraria(timezone = "America/Manaus"): string {
-  const hora = Number(
-    new Intl.DateTimeFormat("pt-BR", { timeZone: timezone, hour: "numeric", hour12: false })
-      .format(new Date()),
-  );
-  if (hora >= 5 && hora < 12) return "Bom dia";
-  if (hora >= 12 && hora < 18) return "Boa tarde";
-  return "Boa noite";
-}
+// saudacaoHoraria importada de utils.ts
 
 function normalizeAlphaNumeric(value: string | null | undefined): string {
   return String(value ?? "")

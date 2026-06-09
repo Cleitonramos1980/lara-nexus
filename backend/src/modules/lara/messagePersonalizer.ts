@@ -12,7 +12,7 @@
  */
 
 import { env } from "../../config/env.js";
-import { safeText } from "./utils.js";
+import { safeText, saudacaoHoraria } from "./utils.js";
 import type { SentimentResult } from "./sentimentAnalyzer.js";
 
 // ─── Tipos ────────────────────────────────────────────────────────────────────
@@ -80,15 +80,7 @@ function onFailure(nowMs: number): void {
 
 // ─── Prompt Builder ───────────────────────────────────────────────────────────
 
-function saudacaoHoraria(): string {
-  const hora = Number(
-    new Intl.DateTimeFormat("pt-BR", { timeZone: "America/Manaus", hour: "numeric", hour12: false })
-      .format(new Date()),
-  );
-  if (hora >= 5 && hora < 12) return "Bom dia";
-  if (hora >= 12 && hora < 18) return "Boa tarde";
-  return "Boa noite";
-}
+// saudacaoHoraria importada de utils.ts
 
 function buildSystemPrompt(): string {
   const saudacao = saudacaoHoraria();

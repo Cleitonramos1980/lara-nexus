@@ -356,8 +356,10 @@ export function startLearningEngineScheduler(logger?: LoggerLike): () => void {
         logger?.info?.({ modulo: "learning-engine" }, "Bootstrap: nenhum padrão encontrado — executando ciclo inicial de aprendizado");
         await runCycle("bootstrap");
       }
-    } catch { /* fallback silencioso */ }
-  }, 2 * 60 * 1000); // aguarda 2 min após startup para DB estar disponível
+    } catch (err) {
+      console.error("[learningEngine] Falha no bootstrap inicial:", String(err));
+    }
+  }, 2 * 60 * 1000); // aguarda 2 min apos startup para DB estar disponivel
 
   const timer = setInterval(() => void runTick(), TICK_MS);
   timer.unref?.();

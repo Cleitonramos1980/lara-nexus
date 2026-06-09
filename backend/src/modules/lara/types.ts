@@ -385,3 +385,18 @@ export interface LaraNegociacaoItem {
   created_at: string;
   updated_at: string;
 }
+
+export const LaraConversaStatus = {
+  NOVA: "NOVA",
+  EM_ATENDIMENTO_LARA: "EM_ATENDIMENTO_LARA",
+  AGUARDANDO_CLIENTE: "AGUARDANDO_CLIENTE",
+  AGUARDANDO_HUMANO: "AGUARDANDO_HUMANO",
+  AGUARDANDO_SISTEMA: "AGUARDANDO_SISTEMA",
+  ERRO_SISTEMA: "ERRO_SISTEMA",
+  ERRO_ENVIO: "ERRO_ENVIO",
+  FINALIZADA: "FINALIZADA",
+  OPT_OUT: "OPT_OUT",
+  NUMERO_ERRADO: "NUMERO_ERRADO",
+} as const;
+
+export type LaraConversaStatus = typeof LaraConversaStatus[keyof typeof LaraConversaStatus];

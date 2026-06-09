@@ -490,3 +490,14 @@ export function containsAnyTerm(input: string, terms: string[]): boolean {
   const normalized = removeAccents(safeText(input).toLowerCase());
   return terms.some((term) => normalized.includes(removeAccents(term.toLowerCase())));
 }
+
+
+export function saudacaoHoraria(timezone = "America/Manaus"): string {
+  const hora = Number(
+    new Intl.DateTimeFormat("pt-BR", { timeZone: timezone, hour: "numeric", hour12: false })
+      .format(new Date()),
+  );
+  if (hora >= 5 && hora < 12) return "Bom dia";
+  if (hora >= 12 && hora < 18) return "Boa tarde";
+  return "Boa noite";
+}

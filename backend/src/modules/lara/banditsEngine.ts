@@ -238,7 +238,9 @@ async function seedDefaultArmsIfEmpty(): Promise<void> {
     for (const arm of arms) {
       void laraOperationalStore.upsertBanditArm(arm).catch(() => {});
     }
-  } catch { /* fallback silencioso */ }
+  } catch (err) {
+    console.error("[banditsEngine] Falha ao carregar bracos do bandit:", String(err));
+  }
 }
 
 /**

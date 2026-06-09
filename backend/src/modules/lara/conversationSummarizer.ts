@@ -178,7 +178,7 @@ export async function summarizeConversation(
       }
     }
   } catch {
-    // Cache miss — continua para gerar novo resumo
+    // Cache miss ou parse invalido - continua para gerar novo resumo
   }
 
   try {
@@ -195,13 +195,14 @@ export async function summarizeConversation(
     ).catch(() => {});
 
     return summary;
-  } catch {
+  } catch (err) {
+    console.error("[conversationSummarizer] Falha ao gerar resumo semantico:", String(err));
     return null;
   }
 }
 
 /**
- * Invalida o cache de resumo de um cliente (após nova mensagem relevante).
+ * Invalida o cache de resumo de um cliente (apos nova mensagem relevante).
  */
 export function invalidateConversationSummary(wa_id: string): void {
   _summaryCache.delete(wa_id);

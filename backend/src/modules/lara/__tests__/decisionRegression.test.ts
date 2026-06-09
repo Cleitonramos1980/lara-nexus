@@ -24,7 +24,7 @@ test("policy permite resposta reativa iniciada pelo cliente fora da janela", () 
   assert.equal(result.permitido, true);
 });
 
-test("policy bloqueia contato quando opt-out esta ativo", () => {
+test("policy bloqueia contato outbound quando opt-out esta ativo", () => {
   const result = evaluatePolicy({
     now: new Date("2026-04-10T14:00:00.000Z"),
     timezone: "America/Sao_Paulo",
@@ -32,7 +32,7 @@ test("policy bloqueia contato quando opt-out esta ativo", () => {
     waId: "5591999999999",
     jurisdicao: "BR",
     canal: "WHATSAPP",
-    initiatedByCustomer: true,
+    initiatedByCustomer: false, // sistema inicia — deve bloquear
     optoutAtivo: true,
     perfilVulneravel: false,
     etapaRegua: "D+7",
@@ -42,6 +42,27 @@ test("policy bloqueia contato quando opt-out esta ativo", () => {
 
   assert.equal(result.permitido, false);
   assert.match(result.razao, /opt-out/i);
+});
+
+test("policy permite resposta receptiva quando opt-out ativo e cliente inicia", () => {
+  const result = evaluatePolicy({
+    now: new Date("2026-04-10T14:00:00.000Z"),
+    timezone: "America/Sao_Paulo",
+    tenantId: "default",
+    waId: "5591999999999",
+    jurisdicao: "BR",
+    canal: "WHATSAPP",
+    initiatedByCustomer: true, // cliente inicia — deve permitir em modo receptivo
+    optoutAtivo: true,
+    perfilVulneravel: false,
+    etapaRegua: "D+7",
+    mensagensOutboundUltimas24h: 0,
+    cooldownMinutos: 120,
+  });
+
+  assert.equal(result.permitido, true);
+  assert.equal(result.optoutReceptivo, true);
+  assert.match(result.razao, /receptivo/i);
 });
 
 test("next best action escala quando confianca e baixa", async () => {
