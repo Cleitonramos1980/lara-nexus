@@ -93,7 +93,7 @@ function splitPaymentMessage(
 
 async function enviarRespostaWhatsApp(
   waId: string,
-  resultado: { mensagem?: string; acao?: string; payload_whatsapp?: Record<string, unknown> },
+  resultado: { mensagem?: string; acao?: string; payload_whatsapp?: Record<string, unknown>; codcli?: string },
   logger?: { error?: (...args: unknown[]) => void },
 ): Promise<void> {
   const mensagem = String(resultado.mensagem ?? "").trim();
@@ -103,7 +103,18 @@ async function enviarRespostaWhatsApp(
 
   const { texto, codigo } = splitPaymentMessage(mensagem, resultado.payload_whatsapp);
 
-  await sendWithRetry(waId, texto, logger, { acao: resultado.acao });
+  const textoEnviado = await sendWithRetry(waId, texto, logger, { acao: resultado.acao });
+  if (!textoEnviado) {
+    void laraOperationalStore.addIntegrationLog({
+      integracao: "whatsapp",
+      tipo: "ERRO_ENVIO_WHATSAPP",
+      request_json: { wa_id: waId, acao: resultado.acao, codcli: resultado.codcli ?? null },
+      response_json: { status: "RESPOSTA_GERADA_NAO_ENVIADA", mensagem_tentada: texto.slice(0, 200) },
+      status_operacao: "erro",
+      erro_resumo: "Falha no envio apos 3 tentativas",
+      idempotency_key: `err_envio:${waId}:${dateToIsoDateTime(new Date())}`,
+    });
+  }
 
   if (codigo) {
     await new Promise((resolve) => setTimeout(resolve, 800));
@@ -887,19 +898,39 @@ export async function laraRoutes(app: FastifyInstance) {
       tenantId: body.tenant_id,
       waId: body.wa_id,
     });
-    const resultado = await laraService.processarMensagemInbound({
-      event_id: body.event_id,
-      wa_id: body.wa_id,
-      telefone: body.telefone,
-      message_text: body.message_text,
-      origem: "webhook-whatsapp-inbound",
-      tenant_id: body.tenant_id,
-      jurisdicao: body.jurisdicao,
-      canal: body.canal,
-      received_at: body.received_at,
-      payload: body.payload,
-      correlation_id: (req as any).correlationId,
-    });
+    let resultado: Awaited<ReturnType<typeof laraService.processarMensagemInbound>>;
+    try {
+      resultado = await laraService.processarMensagemInbound({
+        event_id: body.event_id,
+        wa_id: body.wa_id,
+        telefone: body.telefone,
+        message_text: body.message_text,
+        origem: "webhook-whatsapp-inbound",
+        tenant_id: body.tenant_id,
+        jurisdicao: body.jurisdicao,
+        canal: body.canal,
+        received_at: body.received_at,
+        payload: body.payload,
+        correlation_id: (req as any).correlationId,
+      });
+    } catch (errInbound) {
+      req.log.error?.({ wa_id: body.wa_id, erro: String(errInbound) }, "ERRO_INESPERADO_FLUXO_LARA");
+      void laraOperationalStore.addIntegrationLog({
+        integracao: "whatsapp",
+        tipo: "ERRO_INESPERADO_FLUXO_LARA",
+        request_json: { wa_id: body.wa_id, origem: "webhook-whatsapp-inbound" },
+        response_json: { erro: String(errInbound) },
+        status_operacao: "erro",
+        erro_resumo: String(errInbound).slice(0, 500),
+        idempotency_key: `err_inbound:${body.wa_id}:${dateToIsoDateTime(new Date())}`,
+        correlation_id: (req as any).correlationId,
+      });
+      const msgSegura = "Tive uma dificuldade para concluir essa consulta agora. Vou registrar seu atendimento para a equipe verificar e dar continuidade.";
+      if (body.canal === "WHATSAPP" || !body.canal) {
+        await enviarRespostaWhatsApp(body.wa_id, { mensagem: msgSegura, acao: "erro_inesperado" }, req.log);
+      }
+      return { status: "erro", mensagem: msgSegura, acao: "erro_inesperado", wa_id: body.wa_id };
+    }
     if (body.canal === "WHATSAPP" || !body.canal) {
       await enviarRespostaWhatsApp(body.wa_id, resultado, req.log);
     }

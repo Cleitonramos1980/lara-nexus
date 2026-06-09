@@ -21,6 +21,7 @@ export type PolicyEvaluation = {
   razao: string;
   revisaoHumanaDisponivel: boolean;
   proximoHorarioPermitido?: string;
+  optoutReceptivo?: boolean;
 };
 
 type ContactWindow = {
@@ -61,6 +62,18 @@ function isAllowedHour(now: Date, timezone: string, jurisdicao: LaraJurisdicao):
 
 export function evaluatePolicy(input: PolicyEvaluationInput): PolicyEvaluation {
   const baseLegal = LEGAL_BASIS_BY_JURISDICTION[input.jurisdicao] || LEGAL_BASIS_BY_JURISDICTION.GLOBAL;
+
+  // Cliente em opt-out que inicia contato: responde receptivamente (sem cobrança ativa),
+  // mas não bloqueia — o próprio cliente está pedindo ajuda.
+  if (input.optoutAtivo && input.initiatedByCustomer) {
+    return {
+      permitido: true,
+      baseLegal,
+      razao: "Contato receptivo permitido: cliente em opt-out iniciou o contato.",
+      revisaoHumanaDisponivel: true,
+      optoutReceptivo: true,
+    };
+  }
 
   if (input.optoutAtivo) {
     return {

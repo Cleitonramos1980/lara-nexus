@@ -386,7 +386,7 @@ async function pfxToPem(pfxPath: string, passphrase: string): Promise<PemPair> {
   if (!certBags.length) throw new Error("PFX sem certificado");
   if (!keyBags.length)  throw new Error("PFX sem chave privada");
 
-  // Preferir o certificado do e-CNPJ (sujeito contÃ©m o CNPJ)
+  // Preferir o certificado do e-CNPJ (sujeito contem o CNPJ)
   let mainCert = certBags[0].cert!;
   for (const bag of certBags) {
     const cn = bag.cert!.subject.getField("CN")?.value as string | undefined ?? "";
@@ -461,8 +461,8 @@ async function httpRequest(input: HttpRequestInput): Promise<HttpRequestResult> 
   let key: Buffer | undefined  = mtls?.keyPath  ? await readFileCached(mtls.keyPath)  : undefined;
   const ca = mtls?.caPath ? await readFileCached(mtls.caPath) : undefined;
 
-  // Quando sÃ³ PFX Ã© fornecido, converter para PEM via node-forge
-  // (Node.js v24 nÃ£o suporta todos os formatos PKCS12 legacy)
+  // Quando so PFX e fornecido, converter para PEM via node-forge
+  // (Node.js v24 nao suporta todos os formatos PKCS12 legacy)
   if (mtls?.pfxPath && (!cert || !key)) {
     const pair = await pfxToPem(mtls.pfxPath, mtls.passphrase ?? "");
     if (!cert) cert = pair.cert;
@@ -847,13 +847,13 @@ function buildPixCopiaCola(input: {
 
 export class LaraService {
   private cacheWarmed = false;
-  // In-process wa_id â†’ codcli + narrowed duplicatas: survives across requests, cleared on restart
+  // In-process wa_id -> codcli + narrowed duplicatas: survives across requests, cleared on restart
   private readonly waContextMap = new Map<string, { codcli: number; duplicatas?: string[]; updatedAt: number }>();
   private readonly WA_CONTEXT_TTL_MS = 72 * 60 * 60 * 1000;
   // Cache da config JANELA_CONTEXTO_HORAS para evitar query Oracle a cada mensagem recebida
   private janelaContextoCache: { value: number; cachedAt: number } | null = null;
   // Guard contra race condition: dois webhooks (Meta nativo + n8n) processando o mesmo evento simultaneamente.
-  // Chave = idempotencyKey da mensagem â†’ timestamp em que entrou no processamento.
+  // Chave = idempotencyKey da mensagem -> timestamp em que entrou no processamento.
   private readonly _processingGuard = new Map<string, number>();
   private readonly PROCESSING_GUARD_TTL_MS = 60_000;
 
@@ -1191,14 +1191,14 @@ export class LaraService {
     };
   }
 
-  // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  //  DISPARO CONSOLIDADO DA RÃ‰GUA â€” todos os tÃ­tulos do cliente em UMA mensagem
-  // â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+  // â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+  //  DISPARO CONSOLIDADO DA REGUA - todos os titulos do cliente em UMA mensagem
+  // â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
 
   /**
-   * Regra: se o cliente possuir mais de um tÃ­tulo em aberto, todos sÃ£o enviados
+   * Regra: se o cliente possuir mais de um titulo em aberto, todos sao enviados
    * em uma ÃšNICA mensagem listando duplicata, valor e vencimento de cada um.
-   * Se houver apenas um tÃ­tulo, dispara o template WhatsApp da etapa correspondente.
+   * Se houver apenas um titulo, dispara o template WhatsApp da etapa correspondente.
    */
   async dispararReguaClienteConsolidado(input: { codcli: number }): Promise<{
     status: "ok" | "sem_titulos" | "optout" | "sem_wa_id" | "whatsapp_nao_configurado";
@@ -1256,13 +1256,13 @@ export class LaraService {
         if (titulos.length === 1) {
           cabecalho =
             `Ola ${nome}! Identificamos um titulo em aberto:\n\n` +
-            `ðŸ“‹ Duplicata: ${t0.duplicata}\n` +
-            `ðŸ’° Valor: ${formatMoneyBr(t0.valor)}\n` +
-            `ðŸ“… Vencimento: ${formatDateBr(t0.vencimento)}\n\n` +
+            `ðŸ"‹ Duplicata: ${t0.duplicata}\n` +
+            `ðŸ'° Valor: ${formatMoneyBr(t0.valor)}\n` +
+            `ðŸ"… Vencimento: ${formatDateBr(t0.vencimento)}\n\n` +
             `Para facilitar, segue o PIX no valor de *${totalFmt}*:`;
         } else {
           const linhas = titulos.slice(0, 5).map((t) =>
-            `â€¢ ${t.duplicata} â€” ${formatMoneyBr(t.valor)} (venc. ${formatDateBr(t.vencimento)})`
+            `â€¢ ${t.duplicata} - ${formatMoneyBr(t.valor)} (venc. ${formatDateBr(t.vencimento)})`
           ).join("\n");
           cabecalho =
             `Ola ${nome}! Voce possui ${titulos.length} titulo(s) em aberto totalizando *${formatMoneyBr(total)}*:\n\n` +
@@ -1285,13 +1285,13 @@ export class LaraService {
         if (titulos.length === 1) {
           texto =
             `Ola ${nome}! Identificamos um titulo em aberto:\n\n` +
-            `ðŸ“‹ Duplicata: ${t0.duplicata}\n` +
-            `ðŸ’° Valor: ${formatMoneyBr(t0.valor)}\n` +
-            `ðŸ“… Vencimento: ${formatDateBr(t0.vencimento)}\n\n` +
+            `ðŸ"‹ Duplicata: ${t0.duplicata}\n` +
+            `ðŸ'° Valor: ${formatMoneyBr(t0.valor)}\n` +
+            `ðŸ"… Vencimento: ${formatDateBr(t0.vencimento)}\n\n` +
             `Para regularizar, responda *BOLETO* ou *PIX* e te envio o codigo de pagamento.`;
         } else {
           const linhas = titulos.slice(0, 5).map((t) =>
-            `â€¢ ${t.duplicata} â€” ${formatMoneyBr(t.valor)} (venc. ${formatDateBr(t.vencimento)})`
+            `â€¢ ${t.duplicata} - ${formatMoneyBr(t.valor)} (venc. ${formatDateBr(t.vencimento)})`
           ).join("\n");
           texto =
             `Ola ${nome}! Voce possui ${titulos.length} titulo(s) em aberto totalizando *${formatMoneyBr(total)}*:\n\n` +
@@ -1343,7 +1343,7 @@ export class LaraService {
       idempotency_key: makeIdempotencyKey([waId, "regua-consolidado", etapa, String(input.codcli), dateToIsoDate(new Date())]),
     });
 
-    // Registra contexto em memÃ³ria: garante que respostas do cliente na mesma sessÃ£o
+    // Registra contexto em memoria: garante que respostas do cliente na mesma sessao
     // do servidor sejam associadas imediatamente ao codcli sem depender do Oracle.
     this.bindWaContext(waId, Number(cliente.codcli), duplicatasList);
 
@@ -1442,7 +1442,7 @@ export class LaraService {
     let cliente = await laraOperationalStore.getClienteCache(codcli);
 
     // Cache hit mas sem telefone: atualiza a partir do Oracle (fix para dados sincronizados
-    // antes de a resoluÃ§Ã£o de colunas de telefone incluir todas as variantes).
+    // antes de a resolucao de colunas de telefone incluir todas as variantes).
     if (cliente && !cliente.wa_id && !cliente.telefone && isOracleEnabled()) {
       const freshBase = await getClientByCodcli(codcli).catch(() => null);
       if (freshBase?.TELEFONE) {
@@ -1644,7 +1644,7 @@ export class LaraService {
     canal?: string;
     limit?: number;
   }): Promise<LaraConversa[]> {
-    // Single Oracle query â€” uses client data embedded in the message rows (no N+1, no full cache scan)
+    // Single Oracle query - uses client data embedded in the message rows (no N+1, no full cache scan)
     const allRows = await laraOperationalStore.listAllMessages(2000);
 
     // Group messages by wa_id (rows come DESC from Oracle, sort each group ASC)
@@ -2361,8 +2361,8 @@ export class LaraService {
     const fallback = getOracleFallbackState();
     const bancoLaraStatus = fallback.emFallback ? "degradado" : "operacional";
     const bancoLaraDetail = fallback.emFallback
-      ? `MODO RAM ATIVO desde ${fallback.desde?.toISOString() ?? "desconhecido"} â€” ${fallback.totalEventos} evento(s). DADOS SERAO PERDIDOS NO RESTART.`
-      : "Tabelas LARA_* disponÃ­veis (Oracle ativo)";
+      ? `MODO RAM ATIVO desde ${fallback.desde?.toISOString() ?? "desconhecido"} - ${fallback.totalEventos} evento(s). DADOS SERAO PERDIDOS NO RESTART.`
+      : "Tabelas LARA_* disponiveis (Oracle ativo)";
 
     return {
       componentes: [
@@ -2370,7 +2370,7 @@ export class LaraService {
         { label: "Banco operacional Lara", status: bancoLaraStatus, detail: bancoLaraDetail },
         { label: "Webhooks WhatsApp/n8n", status: "operacional", detail: `Rate limit ${webhookLimit}/min` },
         { label: "Classificador IA (OpenAI+fallback)", status: classifierStatus, detail: classifierDetail },
-        { label: "Backend / API", status: "operacional", detail: "Fastify em execuÃ§Ã£o" },
+        { label: "Backend / API", status: "operacional", detail: "Fastify em execucao" },
       ],
       oracle_fallback: {
         em_fallback: fallback.emFallback,
@@ -2479,7 +2479,7 @@ export class LaraService {
     messageText: string;
     contextoPreResolvido?: MensagemContexto | null;
   }): Promise<{ cliente: LaraCliente | null; contexto: MensagemContexto | null; ambiguidade: boolean; identifiedViaDocument: boolean }> {
-    // 1. In-process context map (primary â€” zero latency, reliable within same server process)
+    // 1. In-process context map (primary - zero latency, reliable within same server process)
     const mapped = this.getWaContext(input.waId);
     if (mapped) {
       const clienteMapped = await this.getCliente(mapped.codcli).catch(() => null);
@@ -2499,7 +2499,7 @@ export class LaraService {
       }
     }
 
-    // 2. Oracle message log context (secondary â€” persists across restarts, may fail transiently)
+    // 2. Oracle message log context (secondary - persists across restarts, may fail transiently)
     const contexto = input.contextoPreResolvido !== undefined
       ? input.contextoPreResolvido
       : await this.findRecentContextByWa(input.waId);
@@ -2515,7 +2515,7 @@ export class LaraService {
         }
         return { cliente: clienteContexto, contexto, ambiguidade: false, identifiedViaDocument: false };
       }
-      // getCliente falhou â€” tenta reconstruir direto do Oracle
+      // getCliente falhou - tenta reconstruir direto do Oracle
       if (isOracleEnabled()) {
         const base = await getClientByCodcli(contexto.codcli).catch(() => null);
         if (base) {
@@ -2612,7 +2612,7 @@ export class LaraService {
           return { cliente, contexto, ambiguidade: false, identifiedViaDocument: true };
         }
       }
-      // Documento extraÃ­do mas nÃ£o localizado no Oracle â€” sinaliza tentativa de documento
+      // Documento extraido mas nao localizado no Oracle - sinaliza tentativa de documento
       return { cliente: null, contexto, ambiguidade: false, identifiedViaDocument: true };
     }
 
@@ -2664,7 +2664,7 @@ export class LaraService {
   private async pickTitulosForContext(codcli: number, contexto: MensagemContexto | null): Promise<LaraTitulo[]> {
     let titulos = await this.listTitulos({ codcli, limit: 2000 });
 
-    // Fallback Oracle direto quando o cache local estÃ¡ vazio (sync nÃ£o executado)
+    // Fallback Oracle direto quando o cache local esta vazio (sync nao executado)
     if (titulos.length === 0 && isOracleEnabled()) {
       const oracleRows = await listOpenTitlesFromOracle({ codcli, limit: 500 });
       titulos = oracleRows.map((row) => this.oracleTituloToLaraTitulo(row));
@@ -2777,19 +2777,19 @@ export class LaraService {
       optin: [
         "Voce e Lara, assistente de cobrancas. O cliente acabou de REATIVAR o contato depois de ter pedido pausa.",
         "Seja caloroso, genuino e breve. Confirme que vai continuar ajudando. Maximo 3 linhas.",
-        "Nao use markdown. Nao mencione dividas neste momento — apenas boas-vindas.",
+        "Nao use markdown. Nao mencione dividas neste momento - apenas boas-vindas.",
         `Use o nome '${nome}' se adequado.`,
       ].join("\n"),
       optout: [
         "Voce e Lara, assistente de cobrancas. O cliente acabou de pedir para PARAR de receber mensagens.",
         "Confirme que o pedido foi registrado. Seja respeitoso e breve. Maximo 3 linhas.",
         "Informe que ele pode voltar quando quiser respondendo CONTINUAR.",
-        "Nao tente vender nem negociar — apenas confirmar e respeitar a decisao.",
+        "Nao tente vender nem negociar - apenas confirmar e respeitar a decisao.",
       ].join("\n"),
       pagamento_confirmado: [
         "Voce e Lara, assistente de cobrancas. O cliente disse que ja efetuou o pagamento.",
         "Agradeca genuinamente e informe que a equipe vai verificar. Maximo 3 linhas.",
-        "NUNCA confirme que o titulo foi baixado — diga apenas que vao verificar.",
+        "NUNCA confirme que o titulo foi baixado - diga apenas que vao verificar.",
         `Use o nome '${nome}' se adequado.`,
       ].join("\n"),
     };
@@ -2864,114 +2864,114 @@ export class LaraService {
     ])}`;
 
     const saudacao = saudacaoHoraria();
-    const nomeCliente = input.cliente.cliente.split(“ “)[0];
+    const nomeCliente = input.cliente.cliente.split(" ")[0];
     const historico = input.historicoConversa ?? [];
     const qtdTrocas = historico.length;
     const jaApresentouTitulos = historico.some(
-      (h) => h.role === “lara” && (h.texto.includes(“titulo”) || h.texto.includes(“duplicata”) || h.texto.includes(“aberto”)),
+      (h) => h.role === "lara" && (h.texto.includes("titulo") || h.texto.includes("duplicata") || h.texto.includes("aberto")),
     );
     const jaOfereceuPagamento = historico.some(
-      (h) => h.role === “lara” && (h.texto.includes(“PIX”) || h.texto.includes(“boleto”) || h.texto.includes(“pix”)),
+      (h) => h.role === "lara" && (h.texto.includes("PIX") || h.texto.includes("boleto") || h.texto.includes("pix")),
     );
     const clienteJaDisseQueVaiPagar = historico.some(
-      (h) => h.role === “cliente” && /vou pagar|vou quitar|vou regularizar|pode gerar|pode mandar|manda o pix|manda o boleto/i.test(h.texto),
+      (h) => h.role === "cliente" && /vou pagar|vou quitar|vou regularizar|pode gerar|pode mandar|manda o pix|manda o boleto/i.test(h.texto),
     );
-    const estagio = qtdTrocas === 0 ? “primeiro_contato”
-      : !jaApresentouTitulos ? “apresentacao”
-      : !jaOfereceuPagamento ? “oferta”
-      : clienteJaDisseQueVaiPagar ? “fechamento”
-      : “conducao”;
+    const estagio = qtdTrocas === 0 ? "primeiro_contato"
+      : !jaApresentouTitulos ? "apresentacao"
+      : !jaOfereceuPagamento ? "oferta"
+      : clienteJaDisseQueVaiPagar ? "fechamento"
+      : "conducao";
 
     // Detecta se o cliente está respondendo a um disparo da régua ou iniciou espontaneamente
-    const ORIGENS_CAMPANHA = new Set([“regua-ativa”, “regua-consolidado”, “campanha”, “disparo”]);
+    const ORIGENS_CAMPANHA = new Set(["regua-ativa", "regua-consolidado", "campanha", "disparo"]);
     const ultimoDisparoRegua = [...historico].reverse().find(
-      (h) => h.role === “lara” && ORIGENS_CAMPANHA.has(String((h as Record<string, unknown>).origem ?? “”)),
+      (h) => h.role === "lara" && ORIGENS_CAMPANHA.has(String((h as Record<string, unknown>).origem ?? "")),
     );
-    const isRespostaADisparo = Boolean(ultimoDisparoRegua) || input.origem === “whatsapp-inbound”;
-    const clienteIdentificado = Boolean(input.cliente.codcli && String(input.cliente.codcli).trim() !== “”);
-    const textoUltimoDisparo = ultimoDisparoRegua?.texto ?? “”;
+    const isRespostaADisparo = Boolean(ultimoDisparoRegua) || input.action === "resposta_padrao";
+    const clienteIdentificado = Boolean(input.cliente.codcli && String(input.cliente.codcli).trim() !== "");
+    const textoUltimoDisparo = ultimoDisparoRegua?.texto ?? "";
 
     const systemPrompt = [
-      “Voce e a Lara, assistente de atendimento e cobranca humanizada da Rodrigues Colchoes.”,
-      “”,
-      “## SEU PAPEL”,
-      “Voce NAO e responsavel por iniciar cobrancas nem campanhas.”,
-      “O disparo inicial foi feito automaticamente pelo sistema de cobranca da empresa.”,
-      “Sua funcao comeca quando o cliente responde a esse disparo ou inicia uma conversa.”,
-      “A partir desse momento, voce assume o atendimento completo.”,
-      “”,
-      “## CONTEXTO DA CONVERSA”,
+      "Voce e a Lara, assistente de atendimento e cobranca humanizada da Rodrigues Colchoes.",
+      "",
+      "## SEU PAPEL",
+      "Voce NAO e responsavel por iniciar cobrancas nem campanhas.",
+      "O disparo inicial foi feito automaticamente pelo sistema de cobranca da empresa.",
+      "Sua funcao comeca quando o cliente responde a esse disparo ou inicia uma conversa.",
+      "A partir desse momento, voce assume o atendimento completo.",
+      "",
+      "## CONTEXTO DA CONVERSA",
       isRespostaADisparo
-        ? `O cliente esta respondendo a um disparo automatico de cobranca.${textoUltimoDisparo ? ` Ultima mensagem enviada pelo sistema: “${textoUltimoDisparo.slice(0, 120)}”` : “”}`
-        : “O cliente iniciou esta conversa espontaneamente.”,
-      “Considere sempre os dados financeiros atuais fornecidos no contexto — nao o valor da mensagem original.”,
-      “”,
-      “## IDENTIFICACAO DO CLIENTE”,
+        ? `O cliente esta respondendo a um disparo automatico de cobranca.${textoUltimoDisparo ? ` Ultima mensagem enviada pelo sistema: "${textoUltimoDisparo.slice(0, 120)}"` : ""}`
+        : "O cliente iniciou esta conversa espontaneamente.",
+      "Considere sempre os dados financeiros atuais fornecidos no contexto - nao o valor da mensagem original.",
+      "",
+      "## IDENTIFICACAO DO CLIENTE",
       clienteIdentificado
         ? `O cliente ja foi identificado como ${nomeCliente}. Cumprimente pelo nome se for o primeiro turno.`
-          + “ Em seguida, solicite CPF ou CNPJ para confirmar a identidade antes de apresentar dados financeiros.”
-        : “O cliente NAO foi identificado ainda. Peca nome e CPF ou CNPJ para localizar o cadastro.”
-          + ` Exemplo: “${saudacao}! Eu sou a Lara, assistente de atendimento da Rodrigues Colchoes.`
-          + “ Para te ajudar, preciso confirmar seus dados. Pode me informar seu nome e CPF ou CNPJ?\””,
-      “NAO apresente valores, titulos ou datas antes de confirmar a identidade.”,
-      “”,
-      “## CONFIRMACAO ANTES DE GERAR PAGAMENTO”,
+          + " Em seguida, solicite CPF ou CNPJ para confirmar a identidade antes de apresentar dados financeiros."
+        : "O cliente NAO foi identificado ainda. Peca nome e CPF ou CNPJ para localizar o cadastro."
+          + ` Exemplo: "${saudacao}! Eu sou a Lara, assistente de atendimento da Rodrigues Colchoes.`
+          + " Para te ajudar, preciso confirmar seus dados. Pode me informar seu nome e CPF ou CNPJ?\"",
+      "NAO apresente valores, titulos ou datas antes de confirmar a identidade.",
+      "",
+      "## CONFIRMACAO ANTES DE GERAR PAGAMENTO",
       isRespostaADisparo
-        ? “O sistema ja conhece o cliente e os titulos. Se o cliente pedir PIX ou boleto, gere diretamente sem pedir confirmacao redundante.”
-          + “ EXCECAO: se houver mais de um titulo em aberto e o cliente nao especificou qual, pergunte antes de gerar.”
-        : “Antes de gerar PIX ou boleto, confirme: \”Vou gerar um [forma] de [valor] para [duplicata]. Confirma?\””
-          + “ EXCECAO: se o cliente ja confirmou explicitamente na mesma mensagem.”,
-      “”,
-      “## COMO CONDUZIR A CONVERSA”,
-      “- Leia o historico completo antes de responder. Nao repita o que ja foi dito nessa conversa.”,
-      “- Identifique em que estagio a conversa esta e avance para o proximo passo natural.”,
-      “- Adapte o tom ao estilo do cliente: se escreve formal, responda formal; se informal, adapte.”,
-      “- Cada resposta deve terminar com uma pergunta ou chamada para acao clara.”,
-      “- Se o cliente ja demonstrou intencao de pagar, va direto para a geracao do meio de pagamento.”,
-      “- Se o cliente esta em duvida, esclareça e ofereça a opcao mais simples primeiro.”,
-      “- Se o cliente esta resistente, explore o motivo e proponha negociacao ou parcelamento.”,
-      “- Nunca deixe a conversa sem direcao — sempre indique o proximo passo.”,
-      “”,
-      “## INTENCOES COMUNS E COMO RESPONDER”,
-      “\”Oi\” / \”Ola\” / \”?\”: se identificado, cumprimente pelo nome e solicite CPF/CNPJ. Se nao, peca nome + CPF/CNPJ.”,
-      “\”Quem e?\” / \”De onde e essa mensagem?\”: informe que e a Lara da Rodrigues Colchoes continuando o atendimento.”,
-      “\”Ja paguei\”: verifique no sistema. Peca comprovante se nao constar. Registre como pendente — nao confirme baixa automaticamente.”,
-      “\”So consigo pagar parte agora\”: verifique parcelamento disponivel na politica vigente. Se nao houver, escale para humano.”,
-      “\”Nao reconheco essa divida\”: peca CPF/CNPJ, apresente os dados com naturalidade. Se persistir, escale.”,
-      “\”Para de mandar mensagem\”: registre opt-out imediatamente e encerre.”,
-      “\”Quero falar com uma pessoa\”: escale para atendimento humano imediatamente, sem questionar.”,
-      “\”Esse numero nao e meu\”: acredite no cliente, registre como numero incorreto e encerre sem expor dados.”,
-      “”,
-      “## CLIENTE IRRITADO OU AGRESSIVO”,
-      “Primeira mensagem agressiva: mantenha o tom calmo, nao confronte, ofereça solucao diretamente.”,
-      “Segunda mensagem agressiva: ofereça escalacao para atendente humano e encerre a tentativa automatica.”,
-      “Nunca responda agressividade com agressividade.”,
-      “”,
-      “## QUANDO NAO ENCONTRAR O CLIENTE NO SISTEMA”,
-      “Se CPF ou CNPJ nao retornar cadastro: informe que nao localizou e peca confirmacao do documento.”,
-      “Se persistir sem resultado: escale para atendimento humano.”,
-      “”,
-      “## ENCERRAMENTO DA CONVERSA”,
-      `Apos pagamento confirmado: “${saudacao}, ${nomeCliente}! Seu pagamento foi registrado. Se precisar de algo, pode falar comigo aqui.”`,
-      “Apos opt-out: \”Entendido. Este numero nao recebera mais mensagens nossas. Se precisar, pode nos contatar diretamente.\””,
-      “Apos escalar para humano: \”Ja estou transferindo voce para um atendente. Em breve alguem continuara seu atendimento.\””,
-      “Apos conversa sem resolucao: nao insista. Registre e encerre.”,
-      “”,
-      “## REGRAS ABSOLUTAS”,
-      “- Use apenas dados do contexto fornecido. Nao invente valores, descontos, prazos ou confirmacoes.”,
-      “- Nao ameace, nao constranja, nao use linguagem agressiva ou juridica intimidadora.”,
-      “- Nao use markdown. Maximo 5 linhas curtas e diretas por resposta.”,
-      “- Nunca confirme baixa ou pagamento sem evento homologado pelo sistema.”,
-      “- Nao repita informacoes ja apresentadas nessa mesma conversa.”,
-      “- Se o cliente mudar de assunto, redirecione educadamente ao escopo financeiro.”,
-      “”,
-      “## ESTAGIOS E COMPORTAMENTOS ESPERADOS”,
-      “  primeiro_contato → confirme identidade (CPF/CNPJ), depois apresente os titulos.”,
-      “  apresentacao     → explique os titulos e ofereça PIX ou boleto.”,
-      “  oferta           → reforce o beneficio de quitar hoje e pergunte qual forma de pagamento.”,
-      “  fechamento       → confirme a intencao, gere o meio de pagamento, encaminhe.”,
-      “  conducao         → analise a mensagem, identifique a necessidade, avance para fechamento.”,
-    ].join(“\n”);
+        ? "O sistema ja conhece o cliente e os titulos. Se o cliente pedir PIX ou boleto, gere diretamente sem pedir confirmacao redundante."
+          + " EXCECAO: se houver mais de um titulo em aberto e o cliente nao especificou qual, pergunte antes de gerar."
+        : "Antes de gerar PIX ou boleto, confirme: \"Vou gerar um [forma] de [valor] para [duplicata]. Confirma?\""
+          + " EXCECAO: se o cliente ja confirmou explicitamente na mesma mensagem.",
+      "",
+      "## COMO CONDUZIR A CONVERSA",
+      "- Leia o historico completo antes de responder. Nao repita o que ja foi dito nessa conversa.",
+      "- Identifique em que estagio a conversa esta e avance para o proximo passo natural.",
+      "- Adapte o tom ao estilo do cliente: se escreve formal, responda formal; se informal, adapte.",
+      "- Cada resposta deve terminar com uma pergunta ou chamada para acao clara.",
+      "- Se o cliente ja demonstrou intencao de pagar, va direto para a geracao do meio de pagamento.",
+      "- Se o cliente esta em duvida, esclareça e ofereça a opcao mais simples primeiro.",
+      "- Se o cliente esta resistente, explore o motivo e proponha negociacao ou parcelamento.",
+      "- Nunca deixe a conversa sem direcao - sempre indique o proximo passo.",
+      "",
+      "## INTENCOES COMUNS E COMO RESPONDER",
+      "\"Oi\" / \"Ola\" / \"?\": se identificado, cumprimente pelo nome e solicite CPF/CNPJ. Se nao, peca nome + CPF/CNPJ.",
+      "\"Quem e?\" / \"De onde e essa mensagem?\": informe que e a Lara da Rodrigues Colchoes continuando o atendimento.",
+      "\"Ja paguei\": verifique no sistema. Peca comprovante se nao constar. Registre como pendente - nao confirme baixa automaticamente.",
+      "\"So consigo pagar parte agora\": verifique parcelamento disponivel na politica vigente. Se nao houver, escale para humano.",
+      "\"Nao reconheco essa divida\": peca CPF/CNPJ, apresente os dados com naturalidade. Se persistir, escale.",
+      "\"Para de mandar mensagem\": registre opt-out imediatamente e encerre.",
+      "\"Quero falar com uma pessoa\": escale para atendimento humano imediatamente, sem questionar.",
+      "\"Esse numero nao e meu\": acredite no cliente, registre como numero incorreto e encerre sem expor dados.",
+      "",
+      "## CLIENTE IRRITADO OU AGRESSIVO",
+      "Primeira mensagem agressiva: mantenha o tom calmo, nao confronte, ofereça solucao diretamente.",
+      "Segunda mensagem agressiva: ofereça escalacao para atendente humano e encerre a tentativa automatica.",
+      "Nunca responda agressividade com agressividade.",
+      "",
+      "## QUANDO NAO ENCONTRAR O CLIENTE NO SISTEMA",
+      "Se CPF ou CNPJ nao retornar cadastro: informe que nao localizou e peca confirmacao do documento.",
+      "Se persistir sem resultado: escale para atendimento humano.",
+      "",
+      "## ENCERRAMENTO DA CONVERSA",
+      `Apos pagamento confirmado: "${saudacao}, ${nomeCliente}! Seu pagamento foi registrado. Se precisar de algo, pode falar comigo aqui."`,
+      "Apos opt-out: \"Entendido. Este numero nao recebera mais mensagens nossas. Se precisar, pode nos contatar diretamente.\"",
+      "Apos escalar para humano: \"Ja estou transferindo voce para um atendente. Em breve alguem continuara seu atendimento.\"",
+      "Apos conversa sem resolucao: nao insista. Registre e encerre.",
+      "",
+      "## REGRAS ABSOLUTAS",
+      "- Use apenas dados do contexto fornecido. Nao invente valores, descontos, prazos ou confirmacoes.",
+      "- Nao ameace, nao constranja, nao use linguagem agressiva ou juridica intimidadora.",
+      "- Nao use markdown. Maximo 5 linhas curtas e diretas por resposta.",
+      "- Nunca confirme baixa ou pagamento sem evento homologado pelo sistema.",
+      "- Nao repita informacoes ja apresentadas nessa mesma conversa.",
+      "- Se o cliente mudar de assunto, redirecione educadamente ao escopo financeiro.",
+      "",
+      "## ESTAGIOS E COMPORTAMENTOS ESPERADOS",
+      "  primeiro_contato -> confirme identidade (CPF/CNPJ), depois apresente os titulos.",
+      "  apresentacao     -> explique os titulos e ofereça PIX ou boleto.",
+      "  oferta           -> reforce o beneficio de quitar hoje e pergunte qual forma de pagamento.",
+      "  fechamento       -> confirme a intencao, gere o meio de pagamento, encaminhe.",
+      "  conducao         -> analise a mensagem, identifique a necessidade, avance para fechamento.",
+    ].join("\n");
 
     const titulosResumo = this.buildTitulosResumoForLlm(input.titulos);
     const maxAtraso = input.titulos.reduce((max, item) => Math.max(max, Number(item.dias_atraso ?? 0)), 0);
@@ -2988,23 +2988,23 @@ export class LaraService {
       ],
       apresentacao: [
         "O cliente ainda nao viu os titulos claramente. Apresente-os de forma resumida.",
-        "OfereÃ§a PIX (pagamento instantaneo) ou boleto (1 dia util) como opcoes.",
+        "Ofereca PIX (pagamento instantaneo) ou boleto (1 dia util) como opcoes.",
         "Termine com uma pergunta direta sobre qual prefere.",
       ],
       oferta: [
         "Os titulos ja foram apresentados. Foque em fechar o pagamento.",
         "Reforce a facilidade do PIX ou boleto.",
         "Pergunte: 'Qual forma de pagamento prefere? PIX ou boleto?'",
-        "Se o cliente hesitar, ofereÃ§a parcelamento ou negociacao.",
+        "Se o cliente hesitar, ofereca parcelamento ou negociacao.",
       ],
       fechamento: [
         "O cliente demonstrou intencao de pagar. Confirme e encaminhe para o pagamento.",
         "Diga que vai gerar o meio de pagamento solicitado.",
-        "Seja objetivo e rapido â€” nao prolongue a conversa.",
+        "Seja objetivo e rapido - nao prolongue a conversa.",
       ],
       conducao: [
         "Analise o que o cliente disse e identifique o que ele precisa agora.",
-        "Se for duvida: esclareÃ§a com objetividade.",
+        "Se for duvida: esclareca com objetividade.",
         "Se for resistencia: proponha negociacao ou parcelamento.",
         "Se for confirmacao: encaminhe para pagamento imediatamente.",
         "Sempre termine com o proximo passo claro.",
@@ -3074,11 +3074,11 @@ export class LaraService {
           intent_antes_do_refinamento: input.contextualInsights.intent_original,
           intent_apos_refinamento: input.contextualInsights.intent_refinado,
           instrucao_extra: input.contextualInsights.mencionou_titulo_especifico
-            ? "O cliente mencionou um titulo especifico — responda referenciando esse titulo diretamente."
+            ? "O cliente mencionou um titulo especifico - responda referenciando esse titulo diretamente."
             : input.contextualInsights.mencionou_data_pagamento
-              ? "O cliente indicou uma data de pagamento — confirme a data e registre a promessa."
+              ? "O cliente indicou uma data de pagamento - confirme a data e registre a promessa."
               : input.contextualInsights.confirmacao_por_contexto
-                ? "O cliente confirmou a intencao de pagar — encaminhe imediatamente para o pagamento."
+                ? "O cliente confirmou a intencao de pagar - encaminhe imediatamente para o pagamento."
                 : undefined,
         },
       } : {}),
@@ -3755,7 +3755,7 @@ export class LaraService {
     });
 
     const finalTxid = String(chargePayloadUnknown.txid ?? txid);
-    // Persiste mapeamento txidâ†’tÃ­tulo (prestacao e valor reais para baixa correta)
+    // Persiste mapeamento txid->titulo (prestacao e valor reais para baixa correta)
     const titulosMap = new Map((input.titulos ?? []).map((t) => [t.duplicata, t]));
     for (const dup of input.duplicatas) {
       const tInfo = titulosMap.get(dup);
@@ -3768,7 +3768,7 @@ export class LaraService {
         provider: "bradesco",
         tenantId: "default",
       }).catch((err) => {
-        // Logar falha â€” sem mapeamento TXIDâ†’tÃ­tulo a baixa automÃ¡tica via webhook nÃ£o funcionarÃ¡
+        // Logar falha - sem mapeamento TXID->titulo a baixa automatica via webhook nao funcionara
         void laraOperationalStore.addIntegrationLog({
           integracao: "bradesco-pix",
           tipo: "registrar-cobranca-erro",
@@ -4135,10 +4135,10 @@ export class LaraService {
       forma_pagamento: "",
       detalhe: `Promessa registrada para ${input.data_prometida}`,
       origem: input.origem,
-      responsavel: "Lara AutomaÃ§Ã£o",
+      responsavel: "Lara Automacao",
       status: "registrada",
     });
-    // Rastreia a promessa para o follow-up scheduler marcar o resultado (cumpriu/nÃ£o cumpriu)
+    // Rastreia a promessa para o follow-up scheduler marcar o resultado (cumpriu/nao cumpriu)
     if (input.wa_id) {
       void outcomeTrackAction({
         wa_id: input.wa_id,
@@ -4718,7 +4718,7 @@ export class LaraService {
     const receivedAt = normalizeTimestampForLog(input.received_at);
     const idempotencyKey = input.event_id || makeIdempotencyKey([waId, messageText, receivedAt]);
 
-    // Guard em memÃ³ria: bloqueia chamada concorrente com a mesma chave antes de chegar ao banco.
+    // Guard em memoria: bloqueia chamada concorrente com a mesma chave antes de chegar ao banco.
     // Cobre o gap entre o check do DB e o addMessageLog quando dois webhooks chegam em paralelo.
     const nowGuard = Date.now();
     const inFlight = this._processingGuard.get(idempotencyKey);
@@ -4726,7 +4726,7 @@ export class LaraService {
       return { status: "duplicado", mensagem: "Evento ja sendo processado.", acao: "ignorar", wa_id: waId };
     }
     this._processingGuard.set(idempotencyKey, nowGuard);
-    // Limpeza periÃ³dica para evitar crescimento ilimitado do Map
+    // Limpeza periodica para evitar crescimento ilimitado do Map
     if (this._processingGuard.size > 2000) {
       const cutoff = nowGuard - this.PROCESSING_GUARD_TTL_MS;
       for (const [k, ts] of this._processingGuard) {
@@ -4744,7 +4744,7 @@ export class LaraService {
       };
     }
 
-    // Mensagens de mÃ­dia: log + resposta amigÃ¡vel sem processar NLU (economia de tokens)
+    // Mensagens de midia: log + resposta amigavel sem processar NLU (economia de tokens)
     if (/^\[(IMAGE|AUDIO|VIDEO|DOCUMENT|STICKER)\]$/.test(messageText)) {
       const ctxMedia = await this.findRecentContextByWa(waId).catch(() => null);
       const mediaInboundKey = idempotencyKey;
@@ -4770,7 +4770,7 @@ export class LaraService {
       return {
         status: "ok", mensagem: mediaMsg, acao: "media_nao_suportada", wa_id: waId,
         compliance: {
-          permitido: true, razao: "Midia recebida â€” solicitando texto",
+          permitido: true, razao: "Midia recebida - solicitando texto",
           base_legal: "LGPD Art. 7, X", revisao_humana_disponivel: false, score_confianca: 1,
         },
       };
@@ -4858,9 +4858,9 @@ export class LaraService {
       idempotency_key: idempotencyKey,
     });
 
-    // Modo piloto: se codcli jÃ¡ Ã© conhecido e nÃ£o estÃ¡ autorizado, loga mas nÃ£o responde
+    // Modo piloto: se codcli ja e conhecido e nao esta autorizado, loga mas nao responde
     if (inboundCodcli && !isPilotAllowed(inboundCodcli)) {
-      // Loga para visibilidade mas nÃ£o processa nem envia resposta
+      // Loga para visibilidade mas nao processa nem envia resposta
       void laraOperationalStore.addIntegrationLog({
         integracao: "whatsapp",
         tipo: "inbound-blocked-pilot",
@@ -4872,7 +4872,7 @@ export class LaraService {
       return { status: "ok", mensagem: "", acao: "ignorar", wa_id: waId };
     }
 
-    // Registro automÃ¡tico de feedback: cliente respondeu â†’ alimenta o loop de aprendizado
+    // Registro automatico de feedback: cliente respondeu -> alimenta o loop de aprendizado
     void laraOperationalStore.addIntegrationLog({
       integracao: "feedback-loop",
       tipo: "interacao-resultado",
@@ -4947,7 +4947,7 @@ export class LaraService {
         } else if (isWhatsAppConfigured()) {
           await sendTextMessage(waId, msgRetorno).catch(() => {});
         }
-        // Loga a mensagem de confirmaÃ§Ã£o de reativaÃ§Ã£o no histÃ³rico
+        // Loga a mensagem de confirmacao de reativacao no historico
         await laraOperationalStore.addMessageLog({
           wa_id: waId, codcli: input.codcli ?? null, cliente: "", telefone,
           message_text: msgRetorno, direction: "OUTBOUND",
@@ -4974,7 +4974,7 @@ export class LaraService {
       }
     }
 
-    // Pagamento confirmado pelo cliente: agradecer e criar case para validaÃ§Ã£o
+    // Pagamento confirmado pelo cliente: agradecer e criar case para validacao
     if (intent === "pagamento_confirmado") {
       const ctxPago = await this.findRecentContextByWa(waId).catch(() => null);
       const codcliPago = input.codcli ?? ctxPago?.codcli ?? null;
@@ -4984,7 +4984,7 @@ export class LaraService {
       const temTituloAberto = totalPagoAberto > 0;
 
       if (!temTituloAberto && codcliPago) {
-        // Cliente identificado mas sem dívida ativa — provavelmente já foi baixado pelo webhook PIX
+        // Cliente identificado mas sem dívida ativa - provavelmente já foi baixado pelo webhook PIX
         const nomeSemDivida = clientePagoCtx?.cliente?.split(" ")[0] ?? "cliente";
         const msgSemDivida = `Que otimo, ${nomeSemDivida}! Nao encontramos titulos em aberto para sua conta. Se tiver qualquer duvida sobre pagamentos anteriores, pode perguntar aqui!`;
         if (isUazapiConfigured()) {
@@ -5047,7 +5047,7 @@ export class LaraService {
         operator_name: "Lara Automacao",
         idempotency_key: makeIdempotencyKey([waId, "pagamento_confirmado", messageText.slice(0, 40)]),
       });
-      await writeAudit("resposta_padrao", true, "Cliente confirmou pagamento â€” aguardando validacao.", codcliPago ?? undefined, { flow: "pagamento_confirmado" });
+      await writeAudit("resposta_padrao", true, "Cliente confirmou pagamento - aguardando validacao.", codcliPago ?? undefined, { flow: "pagamento_confirmado" });
       return {
         status: "ok",
         mensagem: msgAgradecimento,
@@ -5082,7 +5082,7 @@ export class LaraService {
       const prioridadeCase = totalOptout >= 5000 ? "critica" : totalOptout >= 1000 ? "alta" : "normal";
 
       const detalheOptout = temDivida
-        ? `Cliente solicitou opt-out WhatsApp. DIVIDA ATIVA: R$ ${formatMoneyBr(totalOptout)} em ${titulosOptout.length} titulo(s) — etapa ${clienteOptout?.etapa_regua ?? "-"}. ` +
+        ? `Cliente solicitou opt-out WhatsApp. DIVIDA ATIVA: R$ ${formatMoneyBr(totalOptout)} em ${titulosOptout.length} titulo(s) - etapa ${clienteOptout?.etapa_regua ?? "-"}. ` +
           `Cobranca deve continuar por outros canais (telefone, carta, juridico). Mensagem original: "${messageText.slice(0, 150)}"`
         : `Cliente solicitou opt-out. Sem divida ativa identificada. Mensagem: "${messageText.slice(0, 150)}"`;
 
@@ -5191,32 +5191,32 @@ export class LaraService {
         });
       };
 
-      // Passo 1 â€” primeiro contato sem documento: apresenta-se e pede CPF
+      // Passo 1 - primeiro contato sem documento: apresenta-se e pede CPF
       if (!jaFoiPedidoId && !enviouDocumento) {
         const saudacao = saudacaoHoraria(timezone);
         const empresa = String(await laraOperationalStore.getConfiguracao("EMPRESA_NOME") ?? env.WHATSAPP_BUSINESS_NAME ?? "nossa empresa").trim();
         const msgIdentificacao = `${saudacao}! Sou a Lara, assistente de cobrancas da ${empresa}. Para consultar seu cadastro e titulos em aberto, por favor informe seu CPF ou CNPJ.`;
         await logMsgId(msgIdentificacao);
-        await writeAudit("escalar_humano", true, "Primeiro contato â€” solicitando identificacao.", undefined, { flow: "solicitar_identificacao" });
+        await writeAudit("escalar_humano", true, "Primeiro contato - solicitando identificacao.", undefined, { flow: "solicitar_identificacao" });
         return {
           status: "ok", mensagem: msgIdentificacao, acao: "solicitar_identificacao", wa_id: waId,
           compliance: { permitido: true, razao: "Solicitando identificacao do titular", base_legal: "Minimizacao de risco de cobranca indevida", revisao_humana_disponivel: true, score_confianca: nlu.confidence },
         };
       }
 
-      // Passo 2 â€” CPF/CNPJ enviado mas nÃ£o localizado no Oracle (primeira tentativa)
+      // Passo 2 - CPF/CNPJ enviado mas nao localizado no Oracle (primeira tentativa)
       if (enviouDocumento && !jaDisseNaoEncontrado) {
         const saudacao = saudacaoHoraria(timezone);
         const msgNaoEncontrado = `${saudacao}! Nao encontrei um cadastro com o CPF/CNPJ informado. Por favor, verifique o numero digitado ou informe seu nome completo para que eu tente localizar seu cadastro.`;
         await logMsgId(msgNaoEncontrado);
-        await writeAudit("escalar_humano", true, "CPF/CNPJ enviado mas nao localizado â€” pedindo nova tentativa.", undefined, { flow: "cpf_nao_encontrado" });
+        await writeAudit("escalar_humano", true, "CPF/CNPJ enviado mas nao localizado - pedindo nova tentativa.", undefined, { flow: "cpf_nao_encontrado" });
         return {
           status: "ok", mensagem: msgNaoEncontrado, acao: "solicitar_identificacao", wa_id: waId,
-          compliance: { permitido: true, razao: "CPF nao localizado â€” solicitando confirmacao", base_legal: "Minimizacao de risco de cobranca indevida", revisao_humana_disponivel: true, score_confianca: nlu.confidence },
+          compliance: { permitido: true, razao: "CPF nao localizado - solicitando confirmacao", base_legal: "Minimizacao de risco de cobranca indevida", revisao_humana_disponivel: true, score_confianca: nlu.confidence },
         };
       }
 
-      // Passo 3 â€” mÃºltiplas tentativas sem sucesso â†’ escala
+      // Passo 3 - multiplas tentativas sem sucesso -> escala
       await this.createCase({
         wa_id: waId,
         tipo_case: "ESCALACAO_HUMANA",
@@ -5238,8 +5238,8 @@ export class LaraService {
     const cliente = identificacao.cliente;
     let titulos = await this.pickTitulosForContext(Number(cliente.codcli), identificacao.contexto);
 
-    // Busca duplicata mencionada primeiro nos tÃ­tulos do contexto, depois em TODOS os tÃ­tulos
-    // do cliente â€” necessÃ¡rio quando o contexto foi estreitado para uma duplicata anterior
+    // Busca duplicata mencionada primeiro nos titulos do contexto, depois em TODOS os titulos
+    // do cliente - necessario quando o contexto foi estreitado para uma duplicata anterior
     // (ex: cliente pediu pix do 1436995, depois diz "agora quero o 641")
     let mentionedTitulo = titulos.find((t) => messageText.includes(t.duplicata));
     if (!mentionedTitulo) {
@@ -5272,7 +5272,7 @@ export class LaraService {
     const duplicatas = titulos.map((item) => item.duplicata);
     const outboundOperator = input.operator_name || "Lara Automacao";
 
-    // Cliente identificado via CPF/CNPJ nesta mensagem â†’ apresenta tÃ­tulos e inicia negociaÃ§Ã£o
+    // Cliente identificado via CPF/CNPJ nesta mensagem -> apresenta titulos e inicia negociacao
     if (identificacao.identifiedViaDocument) {
       const msgApresentacao = this.buildApresentacaoTitulosMsg(cliente, titulos, total, timezone);
       await laraOperationalStore.addMessageLog({
@@ -5294,7 +5294,7 @@ export class LaraService {
         operator_name: outboundOperator,
         idempotency_key: makeIdempotencyKey([waId, "apresentar_titulos", cliente.codcli, total]),
       });
-      await writeAudit("resposta_padrao", true, "Cliente identificado via documento â€” apresentando titulos.", Number(cliente.codcli), {
+      await writeAudit("resposta_padrao", true, "Cliente identificado via documento - apresentando titulos.", Number(cliente.codcli), {
         titulos: titulos.length,
         total,
         flow: "identificacao_por_documento",
@@ -5319,7 +5319,7 @@ export class LaraService {
     const mensagensHistorico = await laraOperationalStore.listMessagesByWaId(waId);
     // Invalida cache do resumo semÃ¢ntico: nova mensagem do cliente pode mudar o contexto
     invalidateConversationSummary(waId);
-    // Aquece o cache de resumo em background (usado na prÃ³xima composeRespostaCobranca)
+    // Aquece o cache de resumo em background (usado na proxima composeRespostaCobranca)
     const convMsgs = laraOperationalStore.buildConversationMessages(mensagensHistorico.slice(-30));
     const convSummaryPromise = summarizeConversation(waId, convMsgs).catch(() => null);
     const nowTs = Date.now();
@@ -5384,11 +5384,11 @@ export class LaraService {
       };
     }
 
-    // Quando o cliente menciona uma duplicata especÃ­fica da lista de cobranÃ§a, infere solicitar_pix
-    // EXCETO quando a mensagem contÃ©m palavras de agendamento â€” nesse caso promessa_pagamento tem prioridade
+    // Quando o cliente menciona uma duplicata especifica da lista de cobranca, infere solicitar_pix
+    // EXCETO quando a mensagem contem palavras de agendamento - nesse caso promessa_pagamento tem prioridade
     const normalizedMsg = removeAccents(messageText.toLowerCase());
 
-    // Detecta TODOS os tÃ­tulos do cliente mencionados na mensagem (word-boundary para evitar substring)
+    // Detecta TODOS os titulos do cliente mencionados na mensagem (word-boundary para evitar substring)
     const allTitulosForDetection = await this.listTitulos({ codcli: Number(cliente.codcli) });
     const anyMentionedTitulo = allTitulosForDetection.some(
       (t) => new RegExp(`\\b${removeAccents(t.duplicata.toLowerCase())}\\b`).test(normalizedMsg),
@@ -5430,7 +5430,7 @@ export class LaraService {
             ? "solicitar_boleto"
             : intent;
 
-    // Sempre eleva confianÃ§a quando o tÃ­tulo estÃ¡ explÃ­cito na mensagem â€” o intent Ã© inequÃ­voco
+    // Sempre eleva confianca quando o titulo esta explicito na mensagem - o intent e inequivoco
     const nbaConfidence = hasMentionedTitulo || shouldSendByContext ? 0.95 : nlu.confidence;
 
     // Analisa sentimento da mensagem atual para alimentar E1 e E2 do NBA
@@ -5449,14 +5449,14 @@ export class LaraService {
       sentiment: sentimentoAtual,
     });
 
-    // Resolve resumo semÃ¢ntico com timeout curto (aproveita cache se jÃ¡ aquecido)
+    // Resolve resumo semÃ¢ntico com timeout curto (aproveita cache se ja aquecido)
     const convSummaryRaw = await Promise.race([
       convSummaryPromise,
       new Promise<null>((r) => setTimeout(() => r(null), 250)),
     ]);
     const convSummaryStr = convSummaryRaw ? formatSummaryForPrompt(convSummaryRaw) : undefined;
 
-    // Rastreia a aÃ§Ã£o escolhida para alimentar o loop de aprendizado
+    // Rastreia a acao escolhida para alimentar o loop de aprendizado
     void outcomeTrackAction({
       wa_id: waId,
       codcli: Number(cliente.codcli) || null,
@@ -5468,9 +5468,9 @@ export class LaraService {
       correlation_id: input.correlation_id || idempotencyKey,
     }).catch(() => "");
 
-    // Detecta correÃ§Ã£o imediata de intenÃ§Ã£o: se Ãºltima aÃ§Ã£o registrada para este wa_id
-    // foi uma aÃ§Ã£o de tipo X mas o cliente respondeu com intent Y diferente,
-    // sinaliza como classificaÃ§Ã£o errada para o learningEngine ajustar o lexicon.
+    // Detecta correcao imediata de intencao: se ultima acao registrada para este wa_id
+    // foi uma acao de tipo X mas o cliente respondeu com intent Y diferente,
+    // sinaliza como classificacao errada para o learningEngine ajustar o lexicon.
     void (async () => {
       const lastOutbound = await laraOperationalStore.listMessagesByWaId(waId).catch(() => []);
       const lastOutboundMsg = lastOutbound.find((m) => String(m.direction).toUpperCase() === "OUTBOUND");
@@ -5564,11 +5564,11 @@ export class LaraService {
     }
 
     if (nba.action === "registrar_promessa") {
-      // â”€â”€ Extrai pares (tÃ­tulo, data) â€” suporta N agendamentos numa Ãºnica mensagem â”€â”€
+      // â"€â"€ Extrai pares (titulo, data) - suporta N agendamentos numa unica mensagem â"€â"€
       const allClientTitulos = allTitulosForDetection;
       const msgNorm = removeAccents(safeText(messageText).toLowerCase());
 
-      // Localiza todos os tÃ­tulos mencionados com suas posiÃ§Ãµes (word-boundary evita substring)
+      // Localiza todos os titulos mencionados com suas posicoes (word-boundary evita substring)
       const mentionedWithPos: Array<{ titulo: LaraTitulo; pos: number }> = [];
       for (const t of allClientTitulos) {
         const dup = removeAccents(t.duplicata.toLowerCase());
@@ -5577,7 +5577,7 @@ export class LaraService {
       }
       mentionedWithPos.sort((a, b) => a.pos - b.pos);
 
-      // Para cada tÃ­tulo, extrai a data do segmento de texto entre ele e o prÃ³ximo tÃ­tulo
+      // Para cada titulo, extrai a data do segmento de texto entre ele e o proximo titulo
       const promessaItems: Array<{ titulo: LaraTitulo; dataPrometida: string }> = [];
       for (let i = 0; i < mentionedWithPos.length; i++) {
         const { titulo, pos } = mentionedWithPos[i];
@@ -5587,7 +5587,7 @@ export class LaraService {
         if (data) promessaItems.push({ titulo, dataPrometida: data });
       }
 
-      // Se algum tÃ­tulo ficou sem data no seu segmento, usa a data global como fallback
+      // Se algum titulo ficou sem data no seu segmento, usa a data global como fallback
       const globalDate = extractPromessaDate(messageText)
         ?? dateToIsoDate(new Date(Date.now() + 24 * 60 * 60 * 1000));
       for (const { titulo } of mentionedWithPos) {
@@ -5596,7 +5596,7 @@ export class LaraService {
         }
       }
 
-      // Sem tÃ­tulos explÃ­citos: usa o contexto atual (duplicatas / titulos)
+      // Sem titulos explicitos: usa o contexto atual (duplicatas / titulos)
       const itemsToRegister: Array<{ titulo: LaraTitulo; dataPrometida: string }> =
         promessaItems.length > 0
           ? promessaItems
@@ -5642,7 +5642,7 @@ export class LaraService {
           .map((item) => {
             const vStr = item.titulo.valor.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
             const [, mm, dd] = item.dataPrometida.split("-");
-            return `â€¢ Duplic. ${item.titulo.duplicata} (${vStr}) â€” dia ${dd}/${mm}`;
+            return `â€¢ Duplic. ${item.titulo.duplicata} (${vStr}) - dia ${dd}/${mm}`;
           })
           .join("\n");
         const totalMulti = roundMoney(itemsToRegister.reduce((s, i) => s + i.titulo.valor, 0));
@@ -5677,7 +5677,7 @@ export class LaraService {
       const saudacao = saudacaoHoraria(timezone);
       const nomeCliente = cliente.cliente.split(" ")[0];
       const valorStr = total.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-      const msgOpcoes = `${saudacao}, ${nomeCliente}! Para regularizar seu saldo de ${valorStr}, posso gerar:\n\nâ€¢ *PIX copia e cola* â€” pagamento instantÃ¢neo\nâ€¢ *Boleto bancÃ¡rio* â€” vencimento em 1 dia util\n\nQual prefere? Responda *PIX* ou *Boleto*.`;
+      const msgOpcoes = `${saudacao}, ${nomeCliente}! Para regularizar seu saldo de ${valorStr}, posso gerar:\n\nâ€¢ *PIX copia e cola* - pagamento instantÃ¢neo\nâ€¢ *Boleto bancario* - vencimento em 1 dia util\n\nQual prefere? Responda *PIX* ou *Boleto*.`;
       await laraOperationalStore.addMessageLog({
         wa_id: waId,
         codcli: Number(cliente.codcli),
@@ -5742,7 +5742,7 @@ export class LaraService {
         keywords_detectadas: sentimentoAtual.keywords_detectadas.slice(0, 5),
       });
 
-      // Mensagem diferenciada por prioridade — evita resposta corporativa fria em emergências
+      // Mensagem diferenciada por prioridade - evita resposta corporativa fria em emergências
       const nomeCliente = cliente.cliente.split(" ")[0];
       let msgEscalacao: string;
       if (nba.prioridade === "critica" && sentimentoAtual.requer_escalacao_imediata) {
@@ -6226,10 +6226,10 @@ export class LaraService {
       };
     }
 
-    // Lookup primÃ¡rio: LARA_PIX_COBRANCAS (mapeamento txidâ†’tÃ­tulo gerado pela Lara)
+    // Lookup primario: LARA_PIX_COBRANCAS (mapeamento txid->titulo gerado pela Lara)
     const cobrancas: PixCobrancaRow[] = await findCobrancasByTxid(normalized.txid).catch(() => []);
     if (cobrancas.length > 0) {
-      // Se todas jÃ¡ foram baixadas, retorna duplicate imediatamente
+      // Se todas ja foram baixadas, retorna duplicate imediatamente
       if (cobrancas.every((c) => c.pago)) {
         const response = buildResponse("duplicate", "OK_TITLE_ALREADY_SETTLED", "Titulo(s) ja baixado(s) para este TXID.", { title_found: true, title_already_settled: true });
         await laraOperationalStore.addIntegrationLog({
@@ -6451,7 +6451,7 @@ export class LaraService {
           },
         );
       } else {
-        // Tenta baixa automÃ¡tica se habilitada
+        // Tenta baixa automatica se habilitada
         const autoBaixaRaw = await laraOperationalStore.getConfiguracao("LARA_PIX_AUTO_BAIXA_HABILITADO");
         const autoBaixaEnabled = autoBaixaRaw !== null
           ? ["1", "true", "sim"].includes(String(autoBaixaRaw).toLowerCase())
@@ -6674,7 +6674,7 @@ export class LaraService {
       sentimento: analyzeSentiment(m.message_text),
     }));
 
-    // Sentimento geral: mÃ©dia dos scores
+    // Sentimento geral: media dos scores
     const scoreMedia = roundMoney(historico.reduce((s, h) => s + h.sentimento.score, 0) / historico.length);
     const critico = historico.some((h) => h.sentimento.requer_escalacao_imediata);
     const maxStress = Math.max(...historico.map((h) => h.sentimento.stress_level)) as 0 | 1 | 2 | 3;
@@ -6696,7 +6696,7 @@ export class LaraService {
       laraOperationalStore.listPromessas(),
     ]);
 
-    if (!cliente) throw new Error(`Cliente ${codcli} nÃ£o encontrado.`);
+    if (!cliente) throw new Error(`Cliente ${codcli} nao encontrado.`);
 
     const waId = cliente.wa_id;
     const agora = Date.now();
@@ -6712,7 +6712,7 @@ export class LaraService {
     const respostas7d = msgs7d.filter((m) => String(m.direction).toUpperCase() === "INBOUND").length;
     const enviadas24h = msgs24h.filter((m) => String(m.direction).toUpperCase() === "OUTBOUND").length;
 
-    // HistÃ³rico real de horas em que o cliente respondeu (para melhor_hora real)
+    // Historico real de horas em que o cliente respondeu (para melhor_hora real)
     const horasResposta = msgsPorWa
       .filter((m) => String(m.direction).toUpperCase() === "INBOUND")
       .map((m) => new Date(m.created_at).getHours());
@@ -6731,7 +6731,7 @@ export class LaraService {
       ? Math.floor((agora - new Date(ultimaMsg.created_at).getTime()) / um_dia_ms)
       : 999;
 
-    // Sentimento da Ãºltima mensagem inbound para integrar no score
+    // Sentimento da ultima mensagem inbound para integrar no score
     const ultimaMsgInbound = [...msgsPorWa]
       .reverse()
       .find((m) => String(m.direction).toUpperCase() === "INBOUND");
@@ -6760,7 +6760,7 @@ export class LaraService {
   }
 
   // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-  //  NEGOCIAÃ‡ÃƒO AUTÃ”NOMA
+  //  NEGOCIAÃ‡ÃƒO AUTÃ"NOMA
   // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
   async listPoliticasNegociacao(): Promise<PoliticaNegociacao[]> {
@@ -6783,7 +6783,7 @@ export class LaraService {
   }
 
   async upsertPoliticaNegociacao(input: Omit<PoliticaNegociacao, "id" | "created_at" | "updated_at">) {
-    // Atualiza configuraÃ§Ãµes dinÃ¢micas no store
+    // Atualiza configuracoes dinÃ¢micas no store
     await laraOperationalStore.upsertConfiguracao(
       `LARA_NEG_${input.etapa_regua.replace('+', 'MAIS').replace('-', 'MENOS')}_DESCONTO`,
       String(input.desconto_maximo_pct),
@@ -6808,7 +6808,7 @@ export class LaraService {
       this.getCliente(codcli),
       this.listTitulos({ codcli }),
     ]);
-    if (!cliente) throw new Error(`Cliente ${codcli} nÃ£o encontrado.`);
+    if (!cliente) throw new Error(`Cliente ${codcli} nao encontrado.`);
 
     const politicasSalvas = await this.listPoliticasNegociacao();
     const politica = selecionarPoliticaPorEtapa(cliente.etapa_regua, politicasSalvas);
@@ -6830,7 +6830,7 @@ export class LaraService {
   async gerarPortalToken(codcli: number, waId?: string) {
     const { randomUUID } = await import("node:crypto");
     const cliente = await this.getCliente(codcli);
-    if (!cliente) throw new Error(`Cliente ${codcli} nÃ£o encontrado.`);
+    if (!cliente) throw new Error(`Cliente ${codcli} nao encontrado.`);
 
     const horasRaw = await laraOperationalStore.getConfiguracao("LARA_PORTAL_TOKEN_HORAS");
     const horas = Number(horasRaw ?? "48");
@@ -6855,9 +6855,9 @@ export class LaraService {
   }
 
   private async resolvePortalToken(token: string): Promise<{ codcli: number; wa_id: string }> {
-    if (!token || token.length < 10) throw Object.assign(new Error("Token invÃ¡lido."), { statusCode: 400 });
+    if (!token || token.length < 10) throw Object.assign(new Error("Token invalido."), { statusCode: 400 });
     const raw = await laraOperationalStore.getConfiguracao(`LARA_PORTAL_TOKEN_${token}`);
-    if (!raw) throw Object.assign(new Error("Token nÃ£o encontrado ou expirado."), { statusCode: 404 });
+    if (!raw) throw Object.assign(new Error("Token nao encontrado ou expirado."), { statusCode: 404 });
     let parsed: { codcli: number; valido_ate: string; wa_id: string };
     try {
       parsed = JSON.parse(raw);
@@ -6865,7 +6865,7 @@ export class LaraService {
       throw Object.assign(new Error("Token corrompido."), { statusCode: 400 });
     }
     if (!parsed.codcli || !parsed.valido_ate) {
-      throw Object.assign(new Error("Token sem dados obrigatÃ³rios."), { statusCode: 400 });
+      throw Object.assign(new Error("Token sem dados obrigatorios."), { statusCode: 400 });
     }
     if (new Date(parsed.valido_ate) < new Date()) {
       throw Object.assign(new Error("Token expirado."), { statusCode: 401 });
@@ -6879,7 +6879,7 @@ export class LaraService {
       this.getCliente(codcli),
       this.listTitulos({ codcli }),
     ]);
-    if (!cliente) throw Object.assign(new Error("Cliente nÃ£o encontrado."), { statusCode: 404 });
+    if (!cliente) throw Object.assign(new Error("Cliente nao encontrado."), { statusCode: 404 });
 
     const titulosAbertos = titulos.filter((t) => t.valor > 0);
     const valorTotal = roundMoney(titulosAbertos.reduce((s, t) => s + t.valor, 0));
@@ -6923,10 +6923,10 @@ export class LaraService {
       this.getCliente(codcli),
       this.listTitulos({ codcli }),
     ]);
-    if (!cliente) throw Object.assign(new Error("Cliente nÃ£o encontrado."), { statusCode: 404 });
+    if (!cliente) throw Object.assign(new Error("Cliente nao encontrado."), { statusCode: 404 });
     const titulosAbertos = titulos.filter((t) => t.valor > 0);
     if (titulosAbertos.length === 0) {
-      return { status: "sem_titulos", mensagem: "Nenhum tÃ­tulo em aberto encontrado.", codcli: String(codcli) };
+      return { status: "sem_titulos", mensagem: "Nenhum titulo em aberto encontrado.", codcli: String(codcli) };
     }
 
     if (forma === "pix" || forma === "boleto") {
@@ -6942,7 +6942,7 @@ export class LaraService {
       return { status: "gerado", forma, ...payload };
     }
 
-    // Negociação — usa políticas salvas no banco
+    // Negociação - usa políticas salvas no banco
     const politicasPortalPgto = await this.listPoliticasNegociacao();
     const politica = selecionarPoliticaPorEtapa(cliente.etapa_regua, politicasPortalPgto);
     const negociacao = gerarPropostasNegociacao({
@@ -6955,7 +6955,7 @@ export class LaraService {
     const idx = propostaIndex ?? 0;
     const proposta = negociacao.propostas[idx];
     if (!proposta) {
-      throw Object.assign(new Error(`Proposta ${idx} nÃ£o encontrada. Total: ${negociacao.propostas.length}`), { statusCode: 400 });
+      throw Object.assign(new Error(`Proposta ${idx} nao encontrada. Total: ${negociacao.propostas.length}`), { statusCode: 400 });
     }
 
     const valorTotal = roundMoney(titulosAbertos.reduce((s, t) => s + t.valor, 0));
@@ -6985,7 +6985,7 @@ export class LaraService {
       forma: "negociacao",
       proposta_selecionada: proposta,
       codcli: String(codcli),
-      mensagem: `Proposta aceita: ${proposta.mensagem_oferta}. Aguarde confirmaÃ§Ã£o.`,
+      mensagem: `Proposta aceita: ${proposta.mensagem_oferta}. Aguarde confirmacao.`,
     };
   }
 
@@ -7073,14 +7073,14 @@ export class LaraService {
       return { etapa, variantes: [], mensagem: "Nenhum template ativo para esta etapa." };
     }
 
-    // Agrupa por variante (campo variante pode nÃ£o existir ainda â€” trata como "A")
+    // Agrupa por variante (campo variante pode nao existir ainda - trata como "A")
     const varianteMap = new Map<string, { disparos: number; respostas: number; pagamentos: number; nome: string; id: string }>();
     for (const t of templatesDaEtapa) {
       const variante = (t as any).variante ?? "A";
       varianteMap.set(variante, { disparos: 0, respostas: 0, pagamentos: 0, nome: t.nome_template, id: t.id });
     }
 
-    // Conta resultados do feedback por etapa (sem discriminaÃ§Ã£o de variante ainda â€” base para evoluÃ§Ã£o)
+    // Conta resultados do feedback por etapa (sem discriminacao de variante ainda - base para evolucao)
     const feedbacksDaEtapa = feedbacks.filter((f) => f.etapa === etapa || !f.etapa);
     const totalDisparos = feedbacksDaEtapa.length || 1;
     const totalRespostas = feedbacksDaEtapa.filter((f) => f.resultado === "respondeu" || f.resultado === "pagou").length;
@@ -7127,7 +7127,7 @@ export class LaraService {
 
     const alertas: Array<{ tipo: "critico" | "aviso" | "info"; titulo: string; descricao: string; valor?: number }> = [];
 
-    // Alerta 1: Clientes de risco crÃ­tico sem contato em 7+ dias
+    // Alerta 1: Clientes de risco critico sem contato em 7+ dias
     const semContato = clientes.filter((c) => {
       if (c.risco !== "critico" && c.risco !== "alto") return false;
       if (!c.ultimo_contato) return true;
@@ -7137,13 +7137,13 @@ export class LaraService {
     if (semContato.length > 0) {
       alertas.push({
         tipo: "critico",
-        titulo: "Clientes crÃ­ticos sem contato",
-        descricao: `${semContato.length} clientes de risco crÃ­tico/alto sem contato hÃ¡ 7+ dias.`,
+        titulo: "Clientes criticos sem contato",
+        descricao: `${semContato.length} clientes de risco critico/alto sem contato ha 7+ dias.`,
         valor: semContato.reduce((s, c) => s + c.total_aberto, 0),
       });
     }
 
-    // Alerta 2: Promessas vencidas nÃ£o cumpridas
+    // Alerta 2: Promessas vencidas nao cumpridas
     const promessasVencidas = promessas.filter((p) => {
       const data = String(p.data_prometida ?? "");
       return (p.status === "pendente" || p.status === "aberta") && data && data < hoje;
@@ -7151,18 +7151,18 @@ export class LaraService {
     if (promessasVencidas.length > 0) {
       alertas.push({
         tipo: "aviso",
-        titulo: "Promessas vencidas nÃ£o cumpridas",
-        descricao: `${promessasVencidas.length} promessas de pagamento estÃ£o vencidas e nÃ£o foram cumpridas.`,
+        titulo: "Promessas vencidas nao cumpridas",
+        descricao: `${promessasVencidas.length} promessas de pagamento estao vencidas e nao foram cumpridas.`,
       });
     }
 
-    // Alerta 3: Erros de integraÃ§Ã£o hoje
+    // Alerta 3: Erros de integracao hoje
     const errosHoje = logs.filter((l) => l.severidade === "erro" && l.data_hora.startsWith(hoje));
     if (errosHoje.length > 5) {
       alertas.push({
         tipo: "aviso",
-        titulo: "Erros de integraÃ§Ã£o elevados",
-        descricao: `${errosHoje.length} erros de integraÃ§Ã£o registrados hoje. Verifique Oracle e APIs externas.`,
+        titulo: "Erros de integracao elevados",
+        descricao: `${errosHoje.length} erros de integracao registrados hoje. Verifique Oracle e APIs externas.`,
       });
     }
 
@@ -7172,8 +7172,8 @@ export class LaraService {
     if (valorD30 > 100000) {
       alertas.push({
         tipo: "aviso",
-        titulo: "Alto valor em atraso crÃ­tico (D+30)",
-        descricao: `R$ ${valorD30.toLocaleString("pt-BR")} em atraso hÃ¡ mais de 30 dias em ${clientesD30.length} clientes.`,
+        titulo: "Alto valor em atraso critico (D+30)",
+        descricao: `R$ ${valorD30.toLocaleString("pt-BR")} em atraso ha mais de 30 dias em ${clientesD30.length} clientes.`,
         valor: valorD30,
       });
     }
@@ -7188,15 +7188,15 @@ export class LaraService {
       });
     }
 
-    // Alerta 6: Sem sincronizaÃ§Ã£o Oracle hoje
+    // Alerta 6: Sem sincronizacao Oracle hoje
     const syncHoje = logs.some(
       (l) => l.tipo === "pcprest-sync-diario" && l.status === "sincronizado" && l.data_hora.startsWith(hoje),
     );
     if (!syncHoje && clientes.length > 0) {
       alertas.push({
         tipo: "info",
-        titulo: "SincronizaÃ§Ã£o Oracle pendente",
-        descricao: "A sincronizaÃ§Ã£o diÃ¡ria de tÃ­tulos ainda nÃ£o foi executada hoje.",
+        titulo: "Sincronizacao Oracle pendente",
+        descricao: "A sincronizacao diaria de titulos ainda nao foi executada hoje.",
       });
     }
 
@@ -7211,7 +7211,7 @@ export class LaraService {
   }
 
   // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
-  //  LEADING INDICATORS â€” Dashboard Preditivo
+  //  LEADING INDICATORS - Dashboard Preditivo
   // â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•â•
 
   async getDashboardPreditivo(filial?: string) {
@@ -7225,18 +7225,18 @@ export class LaraService {
       laraOperationalStore.listFeedbackInteracoes(30),
     ]);
 
-    // â”€â”€ 1. Promessas vencendo em 48h â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // â"€â"€ 1. Promessas vencendo em 48h â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
     const promessasVencendo48h = promessas.filter((p) => {
       const dt = String(p.data_prometida ?? "").slice(0, 10);
       return (p.status === "pendente" || p.status === "aberta") && dt >= hojeStr && dt <= em48h;
     });
     const valorPromessas48h = roundMoney(promessasVencendo48h.reduce((s, p) => s + toNumber(p.valor_total), 0));
 
-    // â”€â”€ 2. Pipeline de conversÃ£o estimada (prÃ³ximos 7 dias) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-    // Clientes com propensÃ£o alta ou muito_alta multiplicados por taxa histÃ³rica de conversÃ£o
+    // â"€â"€ 2. Pipeline de conversao estimada (proximos 7 dias) â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+    // Clientes com propensao alta ou muito_alta multiplicados por taxa historica de conversao
     const taxaConversaoHistorica = feedbacks.length > 0
       ? feedbacks.filter((f) => f.resultado === "pagou").length / feedbacks.length
-      : 0.15; // fallback: 15% se sem histÃ³rico
+      : 0.15; // fallback: 15% se sem historico
 
     const clientesAltaPropensao = clientes.filter((c) =>
       c.risco === "baixo" && ["D-3", "D0", "D+3"].includes(c.etapa_regua),
@@ -7245,8 +7245,8 @@ export class LaraService {
       clientesAltaPropensao.reduce((s, c) => s + c.total_aberto, 0) * taxaConversaoHistorica,
     );
 
-    // â”€â”€ 3. Clientes para priorizar hoje (score composto) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-    // CritÃ©rios: etapa avanÃ§ada + risco alto/crÃ­tico + sem contato recente
+    // â"€â"€ 3. Clientes para priorizar hoje (score composto) â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
+    // Criterios: etapa avancada + risco alto/critico + sem contato recente
     const clientesPrioritarios = clientes
       .filter((c) => {
         const diasSemContato = c.ultimo_contato
@@ -7270,14 +7270,14 @@ export class LaraService {
         prioridade_score: c.total_aberto * (c.risco === "critico" ? 2 : 1),
       }));
 
-    // â”€â”€ 4. ProjeÃ§Ã£o de recuperaÃ§Ã£o semanal â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // â"€â"€ 4. Projecao de recuperacao semanal â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
     const totalCarteira = roundMoney(clientes.reduce((s, c) => s + c.total_aberto, 0));
     const recuperacaoProjetada7d = pipelineEstimado7d;
     const percentualRecuperacao = totalCarteira > 0
       ? Math.round((recuperacaoProjetada7d / totalCarteira) * 1000) / 10
       : 0;
 
-    // â”€â”€ 5. TendÃªncia de opt-out (sinal de alerta) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // â"€â"€ 5. TendÃªncia de opt-out (sinal de alerta) â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
     const optoutsUltimos7d = feedbacks.filter((f) => f.resultado === "optout").length;
     const tendenciaOptout = optoutsUltimos7d > 10
       ? "alta"
@@ -7285,7 +7285,7 @@ export class LaraService {
         ? "moderada"
         : "normal";
 
-    // â”€â”€ 6. Melhor janela de contato para hoje â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+    // â"€â"€ 6. Melhor janela de contato para hoje â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€â"€
     const horasMaisEfetivas = feedbacks
       .filter((f) => f.resultado === "pagou" || f.resultado === "respondeu")
       .reduce((acc, f) => {
@@ -7304,13 +7304,13 @@ export class LaraService {
       promessas_vencendo_48h: {
         quantidade: promessasVencendo48h.length,
         valor_total: valorPromessas48h,
-        descricao: `${promessasVencendo48h.length} promessas vencem nas prÃ³ximas 48h â€” R$ ${valorPromessas48h.toLocaleString("pt-BR")}`,
+        descricao: `${promessasVencendo48h.length} promessas vencem nas proximas 48h - R$ ${valorPromessas48h.toLocaleString("pt-BR")}`,
       },
       pipeline_conversao_7d: {
         valor_estimado: recuperacaoProjetada7d,
         percentual_carteira: percentualRecuperacao,
         taxa_historica_usada: Math.round(taxaConversaoHistorica * 1000) / 10,
-        descricao: `ProjeÃ§Ã£o de R$ ${recuperacaoProjetada7d.toLocaleString("pt-BR")} de recuperaÃ§Ã£o nos prÃ³ximos 7 dias`,
+        descricao: `Projecao de R$ ${recuperacaoProjetada7d.toLocaleString("pt-BR")} de recuperacao nos proximos 7 dias`,
       },
       clientes_prioritarios_hoje: {
         quantidade: clientesPrioritarios.length,
@@ -7348,7 +7348,7 @@ export class LaraService {
     const sla_minutos = urgencia === "critica" ? 15 : urgencia === "alta" ? 60 : 240;
     const sla_retorno = dateToIsoDateTime(new Date(Date.now() + sla_minutos * 60 * 1000));
 
-    // Busca histÃ³rico de conversas para contexto
+    // Busca historico de conversas para contexto
     const msgs = await laraOperationalStore.listMessagesByWaId(input.waId).catch(() => []);
     const ultimasMensagens = msgs.slice(-5).map((m) => ({
       direcao: String(m.direction).toUpperCase() === "INBOUND" ? "cliente" : "lara",
@@ -7412,7 +7412,7 @@ function gerarScriptHumano(input: {
   const linhas: string[] = [
     "=== SCRIPT SUGERIDO PELA LARA ===",
     "",
-    `Motivo da escalaÃ§Ã£o: ${input.motivo}`,
+    `Motivo da escalacao: ${input.motivo}`,
   ];
 
   if (input.sentimento) {
@@ -7421,7 +7421,7 @@ function gerarScriptHumano(input: {
       linhas.push(`Palavras detectadas: ${input.sentimento.keywords_detectadas.slice(0, 4).join(", ")}`);
     }
     if (input.sentimento.risco_legal) {
-      linhas.push("âš ï¸ ATENÃ‡ÃƒO: Cliente mencionou aÃ§Ã£o legal (PROCON/advogado). Encaminhe para supervisÃ£o jurÃ­dica.");
+      linhas.push("âš ï¸ ATENÃ‡ÃƒO: Cliente mencionou acao legal (PROCON/advogado). Encaminhe para supervisao juridica.");
     }
   }
 
@@ -7432,28 +7432,28 @@ function gerarScriptHumano(input: {
 
   if (valence === "critico" || stress === 3) {
     linhas.push(
-      "1. INICIE com empatia: 'Entendo que a situaÃ§Ã£o estÃ¡ difÃ­cil, estou aqui para ajudar.'",
-      "2. NÃƒO comece pela cobranÃ§a. Pergunte como o cliente estÃ¡.",
-      "3. OfereÃ§a flexibilidade mÃ¡xima: parcelamento, prazo estendido, desconto especial.",
+      "1. INICIE com empatia: 'Entendo que a situacao esta dificil, estou aqui para ajudar.'",
+      "2. NÃƒO comece pela cobranca. Pergunte como o cliente esta.",
+      "3. Ofereca flexibilidade maxima: parcelamento, prazo estendido, desconto especial.",
       "4. Se mencionar crise pessoal: acione protocolo de vulnerabilidade.",
     );
   } else if (valence === "negativo" || stress === 2) {
     linhas.push(
-      "1. ReconheÃ§a a dificuldade: 'Compreendo que estÃ¡ sendo um momento desafiador.'",
-      "2. Proponha soluÃ§Ã£o imediatamente â€” nÃ£o espere o cliente pedir.",
-      "3. OfereÃ§a parcelamento com entrada reduzida.",
+      "1. Reconheca a dificuldade: 'Compreendo que esta sendo um momento desafiador.'",
+      "2. Proponha solucao imediatamente - nao espere o cliente pedir.",
+      "3. Ofereca parcelamento com entrada reduzida.",
     );
   } else if (valence === "positivo") {
     linhas.push(
-      "1. Cliente receptivo â€” vÃ¡ direto ao ponto.",
-      "2. Confirme o valor e ofereÃ§a PIX ou boleto.",
-      "3. Se necessÃ¡rio, parcelamento com condiÃ§Ãµes favorÃ¡veis.",
+      "1. Cliente receptivo - va direto ao ponto.",
+      "2. Confirme o valor e ofereca PIX ou boleto.",
+      "3. Se necessario, parcelamento com condicoes favoraveis.",
     );
   } else {
     linhas.push(
-      "1. Apresente-se e confirme a dÃ­vida.",
-      "2. OfereÃ§a as opÃ§Ãµes de pagamento disponÃ­veis.",
-      "3. Se houver hesitaÃ§Ã£o, ofereÃ§a parcelamento.",
+      "1. Apresente-se e confirme a divida.",
+      "2. Ofereca as opcoes de pagamento disponiveis.",
+      "3. Se houver hesitacao, ofereca parcelamento.",
     );
   }
 
