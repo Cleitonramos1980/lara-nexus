@@ -12,7 +12,6 @@
 
 import { isOracleEnabled } from "../../db/oracle.js";
 import { laraOperationalStore } from "./operationalStore.js";
-import { enviarAlertaParaTodos } from "./laraAlerts.js";
 
 const TICK_MS = 5 * 60 * 1000; // 5 minutos
 
@@ -93,29 +92,21 @@ async function tick(): Promise<void> {
   // Recuperação — sistema voltou ao normal
   if (!hasFalha && _alertaEnviado) {
     _alertaEnviado = false;
-    _ultimoAlertaTiMs = 0; // reseta o timer de repetição do TI
+    _ultimoAlertaTiMs = 0;
     const msgRecuperado = `Lara - Sistema recuperado\n\nTodos os servicos voltaram ao normal.\nOracle: ${oracle} | uazapi: ${uazapi}\nHora: ${agora}`;
-    await enviarAlertaParaTodos(msgRecuperado, "health:recuperado", 30).catch(() => {});
     if (tiConfig.numero) {
-      await enviarAlertaTi(msgRecuperado, tiConfig.repeatMin).catch(() => {});
+      await enviarAlertaTi(msgRecuperado, 0).catch(() => {}); // 0 = sem cooldown na recuperação
     }
   }
 
-  // Falha detectada
+  // Falha detectada — somente TI recebe, repetindo a cada repeatMin
   if (hasFalha) {
+    if (!_alertaEnviado) _alertaEnviado = true;
     const detalhes: string[] = [];
     if (oracle === "falha") detalhes.push("Oracle/WinThor: FALHA na conexao");
     if (uazapi === "falha") detalhes.push("uazapi/WhatsApp: instancia desconectada");
     const msgFalha =
       `ALERTA - Falha de sistema Lara\n\n${detalhes.join("\n")}\nHora: ${agora}\n\nVerifique o servidor e a conexao com os servicos.`;
-
-    // Primeira falha: notifica atendentes uma vez
-    if (!_alertaEnviado) {
-      _alertaEnviado = true;
-      await enviarAlertaParaTodos(msgFalha, "health:falha", 10).catch(() => {});
-    }
-
-    // TI: repete enquanto a falha persistir (a cada repeatMin)
     if (tiConfig.numero) {
       await enviarAlertaTi(msgFalha, tiConfig.repeatMin).catch(() => {});
     }
