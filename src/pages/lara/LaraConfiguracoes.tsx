@@ -233,49 +233,6 @@ export default function LaraConfiguracoes() {
 
         <section className="rounded-lg border bg-card p-6">
           <div className="mb-4">
-            <h3 className="text-sm font-semibold text-foreground">Monitoramento de Saúde — TI</h3>
-            <p className="text-xs text-muted-foreground mt-1">
-              Responsável de TI que recebe alertas exclusivos quando o sistema cai (Oracle ou WhatsApp). O alerta se repete a cada X minutos enquanto a falha persistir.
-            </p>
-          </div>
-          <div className="flex items-center gap-2 mb-4 flex-wrap">
-            <span className="text-xs text-muted-foreground">Repetir alerta a cada</span>
-            <Input
-              type="number"
-              min={5}
-              value={tiRepeatMin}
-              onChange={e => setTiRepeatMin(e.target.value)}
-              className="w-20 h-7 text-xs"
-            />
-            <span className="text-xs text-muted-foreground">minutos enquanto o sistema estiver fora</span>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 p-3 rounded-md border bg-orange-50/40">
-            <div>
-              <Label className="text-xs text-muted-foreground">Nome do Responsável de TI</Label>
-              <Input
-                placeholder="Ex: Pedro TI"
-                value={tiNome}
-                onChange={e => setTiNome(e.target.value)}
-                className="mt-1.5"
-              />
-            </div>
-            <div>
-              <Label className="text-xs text-muted-foreground">WhatsApp do TI (com DDI)</Label>
-              <Input
-                placeholder="5592999999999"
-                value={tiNumero}
-                onChange={e => setTiNumero(e.target.value.replace(/\D/g, ''))}
-                className="mt-1.5"
-                maxLength={15}
-              />
-            </div>
-          </div>
-        </section>
-
-        <Separator />
-
-        <section className="rounded-lg border bg-card p-6">
-          <div className="mb-4">
             <h3 className="text-sm font-semibold text-foreground">SLA de Atendimento Humano</h3>
             <p className="text-xs text-muted-foreground mt-1">
               Escalação automática quando um atendimento não é assumido dentro do prazo. Fora do horário comercial o clock SLA é pausado.
@@ -397,6 +354,49 @@ export default function LaraConfiguracoes() {
                   maxLength={15}
                 />
               </div>
+            </div>
+          </div>
+        </section>
+
+        <Separator />
+
+        <section className="rounded-lg border bg-card p-6">
+          <div className="mb-4">
+            <h3 className="text-sm font-semibold text-foreground">Monitoramento de Saúde — TI</h3>
+            <p className="text-xs text-muted-foreground mt-1">
+              Responsável de TI que recebe alertas exclusivos quando o sistema cai (Oracle ou WhatsApp). O alerta se repete a cada X minutos enquanto a falha persistir.
+            </p>
+          </div>
+          <div className="flex items-center gap-2 mb-4 flex-wrap">
+            <span className="text-xs text-muted-foreground">Repetir alerta a cada</span>
+            <Input
+              type="number"
+              min={5}
+              value={tiRepeatMin}
+              onChange={e => setTiRepeatMin(e.target.value)}
+              className="w-20 h-7 text-xs"
+            />
+            <span className="text-xs text-muted-foreground">minutos enquanto o sistema estiver fora</span>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 p-3 rounded-md border bg-orange-50/40">
+            <div>
+              <Label className="text-xs text-muted-foreground">Nome do Responsável de TI</Label>
+              <Input
+                placeholder="Ex: Pedro TI"
+                value={tiNome}
+                onChange={e => setTiNome(e.target.value)}
+                className="mt-1.5"
+              />
+            </div>
+            <div>
+              <Label className="text-xs text-muted-foreground">WhatsApp do TI (com DDI)</Label>
+              <Input
+                placeholder="5592999999999"
+                value={tiNumero}
+                onChange={e => setTiNumero(e.target.value.replace(/\D/g, ''))}
+                className="mt-1.5"
+                maxLength={15}
+              />
             </div>
           </div>
         </section>
