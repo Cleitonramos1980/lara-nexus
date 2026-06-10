@@ -27,6 +27,9 @@ export default function LaraConfiguracoes() {
     { ...ALERT_CONTATO_VAZIO },
     { ...ALERT_CONTATO_VAZIO },
   ]);
+  const [tiNome, setTiNome] = useState('');
+  const [tiNumero, setTiNumero] = useState('');
+  const [tiRepeatMin, setTiRepeatMin] = useState('10');
   const [slaNivel1Min, setSlaNivel1Min] = useState('30');
   const [slaNivel2Min, setSlaNivel2Min] = useState('60');
   const [slaGerenteRepeatMin, setSlaGerenteRepeatMin] = useState('15');
@@ -58,6 +61,9 @@ export default function LaraConfiguracoes() {
       nome: map.get(`LARA_ALERT_CONTATO_${i}_NOME`) || '',
       numero: map.get(`LARA_ALERT_CONTATO_${i}_NUMERO`) || '',
     })));
+    if (map.get('LARA_TI_NOME')) setTiNome(map.get('LARA_TI_NOME') || '');
+    if (map.get('LARA_TI_NUMERO')) setTiNumero(map.get('LARA_TI_NUMERO') || '');
+    if (map.get('LARA_TI_REPEAT_MIN')) setTiRepeatMin(map.get('LARA_TI_REPEAT_MIN') || '10');
     if (map.get('LARA_SLA_NIVEL1_MIN')) setSlaNivel1Min(map.get('LARA_SLA_NIVEL1_MIN') || '30');
     if (map.get('LARA_SLA_NIVEL2_MIN')) setSlaNivel2Min(map.get('LARA_SLA_NIVEL2_MIN') || '60');
     if (map.get('LARA_SLA_GERENTE_REPEAT_MIN')) setSlaGerenteRepeatMin(map.get('LARA_SLA_GERENTE_REPEAT_MIN') || '15');
@@ -88,6 +94,9 @@ export default function LaraConfiguracoes() {
         { chave: `LARA_ALERT_CONTATO_${i + 1}_NOME`, valor: c.nome, descricao: `Nome do contato de alerta ${i + 1}` },
         { chave: `LARA_ALERT_CONTATO_${i + 1}_NUMERO`, valor: c.numero, descricao: `Numero do contato de alerta ${i + 1}` },
       ]),
+      { chave: 'LARA_TI_NOME', valor: tiNome, descricao: 'Nome do responsavel de TI' },
+      { chave: 'LARA_TI_NUMERO', valor: tiNumero, descricao: 'WhatsApp do responsavel de TI' },
+      { chave: 'LARA_TI_REPEAT_MIN', valor: tiRepeatMin, descricao: 'Intervalo repeticao alerta TI' },
       { chave: 'LARA_SLA_NIVEL1_MIN', valor: slaNivel1Min, descricao: 'Minutos sem atendimento para alertar supervisor' },
       { chave: 'LARA_SLA_NIVEL2_MIN', valor: slaNivel2Min, descricao: 'Minutos sem atendimento para alertar gerente' },
       { chave: 'LARA_SLA_GERENTE_REPEAT_MIN', valor: slaGerenteRepeatMin, descricao: 'Intervalo repeticao alerta gerente' },
@@ -217,6 +226,49 @@ export default function LaraConfiguracoes() {
                 </div>
               </div>
             ))}
+          </div>
+        </section>
+
+        <Separator />
+
+        <section className="rounded-lg border bg-card p-6">
+          <div className="mb-4">
+            <h3 className="text-sm font-semibold text-foreground">Monitoramento de Saúde — TI</h3>
+            <p className="text-xs text-muted-foreground mt-1">
+              Responsável de TI que recebe alertas exclusivos quando o sistema cai (Oracle ou WhatsApp). O alerta se repete a cada X minutos enquanto a falha persistir.
+            </p>
+          </div>
+          <div className="flex items-center gap-2 mb-4 flex-wrap">
+            <span className="text-xs text-muted-foreground">Repetir alerta a cada</span>
+            <Input
+              type="number"
+              min={5}
+              value={tiRepeatMin}
+              onChange={e => setTiRepeatMin(e.target.value)}
+              className="w-20 h-7 text-xs"
+            />
+            <span className="text-xs text-muted-foreground">minutos enquanto o sistema estiver fora</span>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 p-3 rounded-md border bg-orange-50/40">
+            <div>
+              <Label className="text-xs text-muted-foreground">Nome do Responsável de TI</Label>
+              <Input
+                placeholder="Ex: Pedro TI"
+                value={tiNome}
+                onChange={e => setTiNome(e.target.value)}
+                className="mt-1.5"
+              />
+            </div>
+            <div>
+              <Label className="text-xs text-muted-foreground">WhatsApp do TI (com DDI)</Label>
+              <Input
+                placeholder="5592999999999"
+                value={tiNumero}
+                onChange={e => setTiNumero(e.target.value.replace(/\D/g, ''))}
+                className="mt-1.5"
+                maxLength={15}
+              />
+            </div>
           </div>
         </section>
 

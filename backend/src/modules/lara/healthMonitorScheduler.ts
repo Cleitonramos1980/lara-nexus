@@ -24,6 +24,37 @@ type HealthStatus = {
 
 let _ultimoStatus: HealthStatus | null = null;
 let _alertaEnviado = false;
+// Rastreia a última vez que o alerta de repetição foi enviado ao TI
+let _ultimoAlertaTiMs = 0;
+
+async function getTiConfig(): Promise<{ numero: string; nome: string; repeatMin: number }> {
+  const [numero, nome, repeatMin] = await Promise.all([
+    laraOperationalStore.getConfiguracao("LARA_TI_NUMERO").catch(() => null),
+    laraOperationalStore.getConfiguracao("LARA_TI_NOME").catch(() => null),
+    laraOperationalStore.getConfiguracao("LARA_TI_REPEAT_MIN").catch(() => null),
+  ]);
+  return {
+    numero: String(numero ?? "").trim(),
+    nome: String(nome ?? "TI").trim() || "TI",
+    repeatMin: Math.max(5, Number(repeatMin ?? 10)),
+  };
+}
+
+async function enviarAlertaTi(mensagem: string, repeatMin: number): Promise<void> {
+  const agora = Date.now();
+  if (agora - _ultimoAlertaTiMs < repeatMin * 60 * 1000) return;
+  const { numero } = await getTiConfig();
+  if (!numero) return;
+  try {
+    const { sendText, isUazapiConfigured } = await import("./uazapiService.js");
+    if (isUazapiConfigured()) {
+      _ultimoAlertaTiMs = agora;
+      await sendText(numero, mensagem);
+    }
+  } catch {
+    // nao critico
+  }
+}
 
 async function verificarOracle(): Promise<"ok" | "falha" | "desabilitado"> {
   if (!isOracleEnabled()) return "desabilitado";
@@ -57,28 +88,37 @@ async function tick(): Promise<void> {
   const status: HealthStatus = { oracle, uazapi, ultimaVerificacao: agora };
   const hasFalha = oracle === "falha" || uazapi === "falha";
 
+  const tiConfig = await getTiConfig();
+
   // Recuperação — sistema voltou ao normal
   if (!hasFalha && _alertaEnviado) {
     _alertaEnviado = false;
-    await enviarAlertaParaTodos(
-      `Lara - Sistema recuperado\n\nTodos os servicos voltaram ao normal.\nOracle: ${oracle} | uazapi: ${uazapi}\nHora: ${agora}`,
-      "health:recuperado",
-      30,
-    ).catch(() => {});
+    _ultimoAlertaTiMs = 0; // reseta o timer de repetição do TI
+    const msgRecuperado = `Lara - Sistema recuperado\n\nTodos os servicos voltaram ao normal.\nOracle: ${oracle} | uazapi: ${uazapi}\nHora: ${agora}`;
+    await enviarAlertaParaTodos(msgRecuperado, "health:recuperado", 30).catch(() => {});
+    if (tiConfig.numero) {
+      await enviarAlertaTi(msgRecuperado, tiConfig.repeatMin).catch(() => {});
+    }
   }
 
-  // Falha detectada — envia alerta (com cooldown de 10 min para nao spammar)
-  if (hasFalha && !_alertaEnviado) {
-    _alertaEnviado = true;
+  // Falha detectada
+  if (hasFalha) {
     const detalhes: string[] = [];
     if (oracle === "falha") detalhes.push("Oracle/WinThor: FALHA na conexao");
     if (uazapi === "falha") detalhes.push("uazapi/WhatsApp: instancia desconectada");
+    const msgFalha =
+      `ALERTA - Falha de sistema Lara\n\n${detalhes.join("\n")}\nHora: ${agora}\n\nVerifique o servidor e a conexao com os servicos.`;
 
-    await enviarAlertaParaTodos(
-      `Alerta Lara - Falha de sistema\n\n${detalhes.join("\n")}\nHora: ${agora}\n\nVerifique o servidor e a conexao com os servicos.`,
-      "health:falha",
-      10,
-    ).catch(() => {});
+    // Primeira falha: notifica atendentes uma vez
+    if (!_alertaEnviado) {
+      _alertaEnviado = true;
+      await enviarAlertaParaTodos(msgFalha, "health:falha", 10).catch(() => {});
+    }
+
+    // TI: repete enquanto a falha persistir (a cada repeatMin)
+    if (tiConfig.numero) {
+      await enviarAlertaTi(msgFalha, tiConfig.repeatMin).catch(() => {});
+    }
   }
 
   _ultimoStatus = status;

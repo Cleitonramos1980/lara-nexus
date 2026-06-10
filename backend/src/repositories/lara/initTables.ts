@@ -579,6 +579,10 @@ async function seedDefaultConfig(): Promise<void> {
   await upsertConfig("LARA_FEEDBACK_LOOP_ATIVO", "true", "Registra resultados de cada interacao para aprendizado continuo.");
   await upsertConfig("LARA_DESCONTO_RESPOSTA_RAPIDA_PCT", "5", "Desconto adicional para pagamento nas proximas X horas.");
   await upsertConfig("LARA_DESCONTO_RESPOSTA_RAPIDA_HORAS", "2", "Janela de horas para o desconto de resposta rapida.");
+  // Contato TI — alertas de saúde do sistema (repete enquanto houver falha)
+  await upsertConfig("LARA_TI_NOME", "", "Nome do responsavel de TI para alertas de sistema.");
+  await upsertConfig("LARA_TI_NUMERO", "", "WhatsApp do responsavel de TI (ex: 5511999999999).");
+  await upsertConfig("LARA_TI_REPEAT_MIN", "10", "Intervalo em minutos para repetir alerta de falha ao TI.");
   // SLA de atendimento humano
   await upsertConfig("LARA_SLA_NIVEL1_MIN", "30", "Minutos sem atendimento para alertar supervisor (Nivel 2).");
   await upsertConfig("LARA_SLA_NIVEL2_MIN", "60", "Minutos sem atendimento para alertar gerente (Nivel 3).");
