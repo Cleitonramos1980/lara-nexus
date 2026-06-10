@@ -44,6 +44,15 @@ async function tick(): Promise<void> {
     if (_processados.has(pix.txid)) continue;
     if (pilotCodclis.size > 0 && !pilotCodclis.has(pix.codcli)) continue;
 
+    // Garante que só reenvia uma vez mesmo após restart do servidor
+    const jaReenviado = await laraOperationalStore
+      .findIntegrationByIdempotency(`pix-expiracao:${pix.txid}`)
+      .catch(() => null);
+    if (jaReenviado) {
+      _processados.add(pix.txid); // sincroniza memória
+      continue;
+    }
+
     _processados.add(pix.txid);
 
     try {
