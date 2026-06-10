@@ -148,6 +148,7 @@ type LaraPixPayload = {
   txid?: string;
   provider?: "interno" | "bradesco";
   location?: string;
+  expiracao_horas?: number;
 };
 
 type LaraBolepixPayload = {
@@ -2748,7 +2749,13 @@ export class LaraService {
     // PIX: retorna apenas o texto introdutório.
     // O código PIX bruto é enviado como segunda mensagem separada pelo webhook (uazapi.ts).
     if (String(payload.pix_copia_cola ?? "").trim()) {
-      return `Segue PIX copia e cola para pagamento no valor de ${totalFmt}.\nPIX copia e cola`;
+      const expiracaoHoras = Number(payload.expiracao_horas ?? 24);
+      const validadeLabel = expiracaoHoras === 24
+        ? "valido por 24 horas"
+        : expiracaoHoras < 1
+        ? `valido por ${Math.round(expiracaoHoras * 60)} minutos`
+        : `valido por ${expiracaoHoras} horas`;
+      return `Segue PIX copia e cola para pagamento no valor de ${totalFmt}. O codigo e ${validadeLabel}.\nPIX copia e cola`;
     }
     return `Segue PIX copia e cola para pagamento no valor de ${totalFmt}.`;
   }
@@ -4125,6 +4132,7 @@ export class LaraService {
           txid: bradescoPix.txid,
           location: bradescoPix.location,
           provider: "bradesco",
+          expiracao_horas: Math.round(bradescoConfig.expiracaoSegundos / 3600),
         };
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
@@ -4156,6 +4164,7 @@ export class LaraService {
       duplicatas,
       chave_pix: pixChave,
       provider: "interno",
+      expiracao_horas: 24,
       pix_copia_cola: buildPixCopiaCola({
         pixChave,
         valor: total,
@@ -4163,6 +4172,30 @@ export class LaraService {
         codcli: cliente.codcli,
       }),
     };
+  }
+
+  async gerarNovoPixParaCliente(codcli: number): Promise<{
+    pixCode: string;
+    waId: string;
+    valor: number;
+    expiracaoHoras: number;
+  } | null> {
+    await this.ensureWarmCache();
+    const cliente = await this.getCliente(codcli);
+    if (!cliente) return null;
+    const waId = normalizeWaId(cliente.wa_id || cliente.telefone);
+    if (!waId) return null;
+    const titulos = (await this.listTitulos({ codcli })).filter(
+      (t) => Number.isFinite(t.valor) && t.valor > 0 && t.duplicata?.trim(),
+    );
+    if (!titulos.length) return null;
+    const payload = await this.gerarPayloadPagamento("pix", cliente, titulos);
+    const pixCode = (payload.tipo === "pix" || payload.tipo === "bolepix")
+      ? String((payload as LaraPixPayload).pix_copia_cola ?? "").trim()
+      : "";
+    if (!pixCode) return null;
+    const expiracaoHoras = Number((payload as LaraPixPayload).expiracao_horas ?? 24);
+    return { pixCode, waId, valor: payload.total, expiracaoHoras };
   }
 
   async registrarPromessa(input: {

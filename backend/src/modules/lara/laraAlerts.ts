@@ -74,6 +74,10 @@ async function enviarAlerta(mensagem: string, cooldownKey: string, cooldownMin: 
   }
 }
 
+export async function enviarAlertaParaTodos(mensagem: string, cooldownKey: string, cooldownMin: number): Promise<void> {
+  await enviarAlerta(mensagem, cooldownKey, cooldownMin);
+}
+
 // ---------------------------------------------------------------------------
 // ALERTA 1: Nova escalacao humana
 // ---------------------------------------------------------------------------

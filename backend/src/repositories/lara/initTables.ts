@@ -579,6 +579,16 @@ async function seedDefaultConfig(): Promise<void> {
   await upsertConfig("LARA_FEEDBACK_LOOP_ATIVO", "true", "Registra resultados de cada interacao para aprendizado continuo.");
   await upsertConfig("LARA_DESCONTO_RESPOSTA_RAPIDA_PCT", "5", "Desconto adicional para pagamento nas proximas X horas.");
   await upsertConfig("LARA_DESCONTO_RESPOSTA_RAPIDA_HORAS", "2", "Janela de horas para o desconto de resposta rapida.");
+  // SLA de atendimento humano
+  await upsertConfig("LARA_SLA_NIVEL1_MIN", "30", "Minutos sem atendimento para alertar supervisor (Nivel 2).");
+  await upsertConfig("LARA_SLA_NIVEL2_MIN", "60", "Minutos sem atendimento para alertar gerente (Nivel 3).");
+  await upsertConfig("LARA_SLA_GERENTE_REPEAT_MIN", "15", "Intervalo em minutos para repetir alerta ao gerente.");
+  await upsertConfig("LARA_SLA_SUPERVISOR_NUMERO", "", "Numero WhatsApp do supervisor para alertas Nivel 2 (ex: 5511999999999).");
+  await upsertConfig("LARA_SLA_SUPERVISOR_NOME", "Supervisor", "Nome do supervisor para alertas SLA.");
+  await upsertConfig("LARA_SLA_GERENTE_NUMERO", "", "Numero WhatsApp do gerente para alertas Nivel 3.");
+  await upsertConfig("LARA_SLA_GERENTE_NOME", "Gerente", "Nome do gerente para alertas SLA.");
+  await upsertConfig("LARA_HORARIO_COMERCIAL_INICIO", "8", "Hora de inicio do horario comercial (0-23).");
+  await upsertConfig("LARA_HORARIO_COMERCIAL_FIM", "18", "Hora de fim do horario comercial (0-23).");
 }
 
 async function seedDefaultPoliticasNegociacao(): Promise<void> {

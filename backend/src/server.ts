@@ -52,6 +52,11 @@ import { startWhatsAppTemplateMonitor } from "./modules/lara/whatsappTemplateMon
 import { startLaraReguaScheduler } from "./modules/lara/reguaScheduler.js";
 import { startLaraReadFollowupScheduler } from "./modules/lara/readFollowupScheduler.js";
 import { startBanditEngine } from "./modules/lara/banditsEngine.js";
+import { startHealthMonitorScheduler } from "./modules/lara/healthMonitorScheduler.js";
+import { startSlaAlertScheduler } from "./modules/lara/slaAlertScheduler.js";
+import { startPixBaixaScheduler } from "./modules/lara/pixBaixaScheduler.js";
+import { startPixExpiracaoScheduler } from "./modules/lara/pixExpiracaoScheduler.js";
+import { startWeeklyReportScheduler } from "./modules/lara/weeklyReportScheduler.js";
 import { registerFallbackLogger } from "./modules/lara/operationalStore.js";
 import { initPropensityModel } from "./modules/lara/propensityModel.js";
 import { initUpliftModel } from "./modules/lara/upliftModel.js";
@@ -231,6 +236,11 @@ let stopWaTemplateMonitor: (() => void) | null = null;
 let stopReguaScheduler: (() => void) | null = null;
 let stopBanditEngine: (() => void) | null = null;
 let stopReadFollowup: (() => void) | null = null;
+let stopHealthMonitor: (() => void) | null = null;
+let stopSlaAlert: (() => void) | null = null;
+let stopPixBaixa: (() => void) | null = null;
+let stopPixExpiracao: (() => void) | null = null;
+let stopWeeklyReport: (() => void) | null = null;
 await app.register(multipart, {
   limits: {
     files: env.UPLOAD_MAX_FILES,
@@ -306,8 +316,13 @@ async function start() {
     stopReguaScheduler = startLaraReguaScheduler(app.log);
     stopBanditEngine = startBanditEngine();
     stopReadFollowup = startLaraReadFollowupScheduler(app.log);
+    stopHealthMonitor = startHealthMonitorScheduler();
+    stopSlaAlert = startSlaAlertScheduler();
+    stopPixBaixa = startPixBaixaScheduler();
+    stopPixExpiracao = startPixExpiracaoScheduler();
+    stopWeeklyReport = startWeeklyReportScheduler();
     app.log.info(
-      { schedulers: ["daily-sync","promise-followup","feedback","learning","whatsapp-template","regua","bandit","read-followup"] },
+      { schedulers: ["daily-sync","promise-followup","feedback","learning","whatsapp-template","regua","bandit","read-followup","health-monitor","sla-alert","pix-baixa","pix-expiracao","weekly-report"] },
       "[LARA] Todos os schedulers iniciados.",
     );
   } else {
@@ -402,6 +417,26 @@ process.on("SIGINT", async () => {
   if (stopReadFollowup) {
     stopReadFollowup();
     stopReadFollowup = null;
+  }
+  if (stopHealthMonitor) {
+    stopHealthMonitor();
+    stopHealthMonitor = null;
+  }
+  if (stopSlaAlert) {
+    stopSlaAlert();
+    stopSlaAlert = null;
+  }
+  if (stopPixBaixa) {
+    stopPixBaixa();
+    stopPixBaixa = null;
+  }
+  if (stopPixExpiracao) {
+    stopPixExpiracao();
+    stopPixExpiracao = null;
+  }
+  if (stopWeeklyReport) {
+    stopWeeklyReport();
+    stopWeeklyReport = null;
   }
   await persistAllCollections();
   await closeOraclePool();

@@ -1395,3 +1395,107 @@ export async function marcarPixCobrancaPago(txid: string, dtpag: Date): Promise<
     );
   });
 }
+
+export type PixPendenteRow = {
+  id: string;
+  txid: string;
+  codcli: number;
+  duplicata: string;
+  prestacao: string;
+  valor: number;
+  provider: string;
+  createdAt: Date;
+};
+
+export async function listPixCobrancasPendentes(maxRows = 50): Promise<PixPendenteRow[]> {
+  if (!isOracleEnabled()) return [];
+  const rows = await queryRows<Record<string, unknown>>(
+    `SELECT ID, TXID, CODCLI, DUPLICATA, PRESTACAO, VALOR, PROVIDER, CREATED_AT
+     FROM ${getQualifiedTableName("LARA_PIX_COBRANCAS")}
+     WHERE PAGO = 0
+       AND CREATED_AT >= SYSTIMESTAMP - INTERVAL '30' DAY
+     ORDER BY CREATED_AT ASC
+     FETCH FIRST :maxRows ROWS ONLY`,
+    { maxRows },
+  );
+  return rows.map((r) => ({
+    id: String(r["ID"] ?? ""),
+    txid: String(r["TXID"] ?? ""),
+    codcli: Number(r["CODCLI"] ?? 0),
+    duplicata: String(r["DUPLICATA"] ?? ""),
+    prestacao: String(r["PRESTACAO"] ?? ""),
+    valor: roundMoney(toNumber(r["VALOR"])),
+    provider: String(r["PROVIDER"] ?? ""),
+    createdAt: r["CREATED_AT"] instanceof Date ? r["CREATED_AT"] : new Date(String(r["CREATED_AT"] ?? "")),
+  }));
+}
+
+export async function listPixCobrancasExpiradas(expiracaoHoras: number, maxRows = 20): Promise<PixPendenteRow[]> {
+  if (!isOracleEnabled()) return [];
+  const rows = await queryRows<Record<string, unknown>>(
+    `SELECT ID, TXID, CODCLI, DUPLICATA, PRESTACAO, VALOR, PROVIDER, CREATED_AT
+     FROM ${getQualifiedTableName("LARA_PIX_COBRANCAS")}
+     WHERE PAGO = 0
+       AND CREATED_AT < SYSTIMESTAMP - INTERVAL '${Math.max(1, Math.floor(expiracaoHoras))}' HOUR
+       AND CREATED_AT >= SYSTIMESTAMP - INTERVAL '7' DAY
+     ORDER BY CREATED_AT ASC
+     FETCH FIRST :maxRows ROWS ONLY`,
+    { maxRows },
+  );
+  return rows.map((r) => ({
+    id: String(r["ID"] ?? ""),
+    txid: String(r["TXID"] ?? ""),
+    codcli: Number(r["CODCLI"] ?? 0),
+    duplicata: String(r["DUPLICATA"] ?? ""),
+    prestacao: String(r["PRESTACAO"] ?? ""),
+    valor: roundMoney(toNumber(r["VALOR"])),
+    provider: String(r["PROVIDER"] ?? ""),
+    createdAt: r["CREATED_AT"] instanceof Date ? r["CREATED_AT"] : new Date(String(r["CREATED_AT"] ?? "")),
+  }));
+}
+
+export async function marcarPixCobrancaExpirada(txid: string): Promise<void> {
+  if (!isOracleEnabled() || !txid.trim()) return;
+  await withOracleConnection(async (connection) => {
+    await connection.execute(
+      `UPDATE ${getQualifiedTableName("LARA_PIX_COBRANCAS")}
+       SET PAGO = 2, UPDATED_AT = SYSTIMESTAMP
+       WHERE TRIM(TXID) = TRIM(:txid) AND PAGO = 0`,
+      { txid: txid.trim() },
+      { autoCommit: true },
+    );
+  });
+}
+
+export async function verificarTituloPagoPcprest(
+  duplicata: string,
+  prestacao: string,
+): Promise<{ pago: boolean; dtpag?: Date }> {
+  if (!isOracleEnabled() || !duplicata.trim()) return { pago: false };
+  let resultado: { pago: boolean; dtpag?: Date } = { pago: false };
+  try {
+    await withOracleConnection(async (conn) => {
+      const sql = prestacao.trim()
+        ? `SELECT DTBAIXA, STBAIXA FROM ${getQualifiedTableName("PCPREST")}
+           WHERE TRIM(DUPLIC) = TRIM(:duplic) AND TRIM(PREST) = TRIM(:prest) AND ROWNUM = 1`
+        : `SELECT DTBAIXA, STBAIXA FROM ${getQualifiedTableName("PCPREST")}
+           WHERE TRIM(DUPLIC) = TRIM(:duplic) AND ROWNUM = 1`;
+      const binds: Record<string, string> = { duplic: duplicata.trim() };
+      if (prestacao.trim()) binds["prest"] = prestacao.trim();
+      const result = await conn.execute(sql, binds);
+      const row = (result.rows as unknown[][])?.[0];
+      if (!row) return;
+      const stbaixa = String(row[1] ?? "").trim().toUpperCase();
+      const dtbaixa = row[0];
+      if (stbaixa === "B" || stbaixa === "1" || dtbaixa) {
+        resultado = {
+          pago: true,
+          dtpag: dtbaixa instanceof Date ? dtbaixa : (dtbaixa ? new Date(String(dtbaixa)) : new Date()),
+        };
+      }
+    });
+  } catch {
+    // ignora
+  }
+  return resultado;
+}
